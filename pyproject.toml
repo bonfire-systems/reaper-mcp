@@ -31,9 +31,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bonfire-audio/reaper-mcp"
-Repository = "https://github.com/bonfire-audio/reaper-mcp"
-Issues = "https://github.com/bonfire-audio/reaper-mcp/issues"
+Homepage = "https://github.com/bonfire-systems/reaper-mcp"
+Repository = "https://github.com/bonfire-systems/reaper-mcp"
+Issues = "https://github.com/bonfire-systems/reaper-mcp/issues"
 
 [project.scripts]
 reaper-mcp-server = "reaper_mcp.__main__:main"

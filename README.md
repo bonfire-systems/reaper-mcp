@@ -17,7 +17,7 @@ pip install reaper-mcp-server
 Or install from source:
 
 ```bash
-git clone https://github.com/bonfire-audio/reaper-mcp.git
+git clone https://github.com/bonfire-systems/reaper-mcp.git
 cd reaper-mcp
 pip install -e .
 ```
