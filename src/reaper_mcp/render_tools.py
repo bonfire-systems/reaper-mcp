@@ -1,5 +1,7 @@
+import base64
 import logging
 import os
+import struct
 import time
 from pathlib import Path
 
@@ -70,6 +72,47 @@ BOUNDS_ALL_REGIONS = 3
 BOUNDS_SELECTED_REGIONS = 5
 
 RENDER_CURRENT_SETTINGS = 42230  # File: Render project, using the most recent settings
+
+# RENDER_FORMAT is a base64-encoded, encoder-specific binary blob. The layout
+# below was derived by inspecting blobs REAPER produced for known settings, and
+# only applies to the AVFoundation encoder (FOURCC 'FVAX', i.e. 'XAVF'
+# reversed). Other encoders lay their fields out differently, so every helper
+# here refuses to touch a blob whose FOURCC does not match.
+AVFOUNDATION_FOURCC = b"FVAX"
+_AVF_FIELDS = {
+    "video_bitrate_kbps": (12, "<i"),
+    "audio_bitrate_kbps": (20, "<i"),
+    "width":              (24, "<i"),
+    "height":             (28, "<i"),
+    "fps":                (32, "<f"),
+}
+
+
+def _decode_render_format(blob: str) -> dict:
+    """Best-effort decode of RENDER_FORMAT. Reports the encoder either way."""
+    raw = base64.b64decode(blob)
+    decoded = {"encoder": raw[:4].decode("ascii", "replace")}
+    if raw[:4] == AVFOUNDATION_FOURCC:
+        for name, (offset, fmt) in _AVF_FIELDS.items():
+            decoded[name] = struct.unpack_from(fmt, raw, offset)[0]
+    return decoded
+
+
+def _patch_render_format(blob: str, **fields) -> str:
+    """Return blob with the named fields replaced. Non-AVFoundation blobs raise."""
+    raw = bytearray(base64.b64decode(blob))
+    if raw[:4] != AVFOUNDATION_FOURCC:
+        raise ValueError(
+            f"render format is {bytes(raw[:4])!r}, not AVFoundation "
+            f"({AVFOUNDATION_FOURCC!r}); its byte layout is different, so these "
+            "settings cannot be applied. Configure them in REAPER instead."
+        )
+    for name, value in fields.items():
+        if value is None:
+            continue
+        offset, fmt = _AVF_FIELDS[name]
+        struct.pack_into(fmt, raw, offset, float(value) if fmt == "<f" else int(value))
+    return base64.b64encode(bytes(raw)).decode()
 
 
 def _get_str(key: str) -> str:
@@ -381,6 +424,11 @@ def register_tools(mcp):
         pattern: str = "$region",
         selected_only: bool = False,
         dry_run: bool = False,
+        video_bitrate_kbps: int | None = None,
+        audio_bitrate_kbps: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        fps: float | None = None,
         stall_timeout_seconds: float = 120.0,
         timeout_seconds: float = 3600.0,
     ) -> dict:
@@ -404,8 +452,10 @@ def register_tools(mcp):
         files. Move or delete them yourself, or render somewhere else: this
         tool never deletes anything.
 
-        Encoding (format, resolution, bitrate) is inherited from the project's
-        own render settings, so configure those once in REAPER.
+        Encoding is inherited from the project's own render settings unless
+        overridden. The optional video_bitrate_kbps, audio_bitrate_kbps, width,
+        height and fps arguments require REAPER's AVFoundation encoder and fail
+        cleanly on any other; omitting them is the recommended path.
 
         This call BLOCKS until the render finishes, which for a long project
         can be many minutes. That is not incidental: the project's render
@@ -426,7 +476,7 @@ def register_tools(mcp):
             output_directory = str(Path(output_directory).expanduser().resolve())
             os.makedirs(output_directory, exist_ok=True)
 
-            for key in ("RENDER_FILE", "RENDER_PATTERN"):
+            for key in ("RENDER_FILE", "RENDER_PATTERN", "RENDER_FORMAT"):
                 saved_strings[key] = _get_str(key)
             saved_numbers["RENDER_BOUNDSFLAG"] = RPR.GetSetProjectInfo(
                 0, "RENDER_BOUNDSFLAG", 0, False)
@@ -435,6 +485,16 @@ def register_tools(mcp):
             if not regions:
                 return {"success": False,
                         "error": "no regions are defined in the current project"}
+
+            overrides = {"video_bitrate_kbps": video_bitrate_kbps,
+                         "audio_bitrate_kbps": audio_bitrate_kbps,
+                         "width": width, "height": height, "fps": fps}
+            if any(value is not None for value in overrides.values()):
+                try:
+                    _set_str("RENDER_FORMAT",
+                             _patch_render_format(saved_strings["RENDER_FORMAT"], **overrides))
+                except ValueError as e:
+                    return {"success": False, "error": str(e)}
 
             _set_str("RENDER_FILE", output_directory)
             _set_str("RENDER_PATTERN", pattern)
@@ -454,8 +514,10 @@ def register_tools(mcp):
                         "already_exist": clashes,
                         "output_directory": output_directory,
                         "region_count": len(regions), "regions": regions,
-                        "would_write": targets}
+                        "would_write": targets,
+                        "settings": _decode_render_format(_get_str("RENDER_FORMAT"))}
 
+            settings = _decode_render_format(_get_str("RENDER_FORMAT"))
             if clashes:
                 return {"success": False,
                         "error": f"{len(clashes)} output file(s) already exist. REAPER "
@@ -479,6 +541,7 @@ def register_tools(mcp):
                        "expected": targets,
                        "complete": complete,
                        "status": status,
+                       "settings": settings,
                        "elapsed_seconds": round(time.time() - started, 1)}
             if not complete:
                 result["error"] = (

@@ -1,17 +1,36 @@
 """Unit tests for render_regions' pure helpers.
 
-Deliberately no REAPER: these cover the parsing that has no business talking to
-a DAW, and that is where the subtle breakage lives. The tool functions
-themselves need a live REAPER and are not covered here.
+Deliberately no REAPER: these cover the parsing and byte-packing that has no
+business talking to a DAW, and that is where the subtle breakage lives. The
+tool functions themselves need a live REAPER and are not covered here.
 """
+import base64
+import struct
 import threading
 import time
 
+import pytest
+
 from reaper_mcp.render_tools import (
+    _AVF_FIELDS,
+    AVFOUNDATION_FOURCC,
     _await_render,
     _conflicting_targets,
+    _decode_render_format,
     _parse_render_targets,
+    _patch_render_format,
 )
+
+BLOB_LEN = 46
+
+
+def make_blob(fourcc: bytes = AVFOUNDATION_FOURCC, **fields) -> str:
+    raw = bytearray(BLOB_LEN)
+    raw[0:4] = fourcc
+    for name, (offset, fmt) in _AVF_FIELDS.items():
+        value = fields.get(name, 0)
+        struct.pack_into(fmt, raw, offset, float(value) if fmt == "<f" else int(value))
+    return base64.b64encode(bytes(raw)).decode()
 
 
 class TestParseRenderTargets:
@@ -40,6 +59,55 @@ class TestParseRenderTargets:
 
     def test_without_directory_falls_back_to_naive_split(self):
         assert _parse_render_targets("a.mp4;b.mp4") == ["a.mp4", "b.mp4"]
+
+
+class TestRenderFormat:
+    def test_round_trips_every_field(self):
+        blob = make_blob(video_bitrate_kbps=40000, audio_bitrate_kbps=256,
+                         width=1728, height=3072, fps=50.0)
+        decoded = _decode_render_format(blob)
+        assert decoded["encoder"] == "FVAX"
+        assert decoded["video_bitrate_kbps"] == 40000
+        assert decoded["audio_bitrate_kbps"] == 256
+        assert decoded["width"] == 1728
+        assert decoded["height"] == 3072
+        assert decoded["fps"] == pytest.approx(50.0)
+
+    def test_patch_replaces_only_named_fields(self):
+        blob = make_blob(video_bitrate_kbps=40000, width=1728, height=3072, fps=50.0)
+        patched = _decode_render_format(_patch_render_format(blob, width=1080))
+        assert patched["width"] == 1080
+        assert patched["height"] == 3072          # untouched
+        assert patched["video_bitrate_kbps"] == 40000
+
+    def test_none_values_are_ignored(self):
+        blob = make_blob(width=1728, height=3072)
+        patched = _decode_render_format(_patch_render_format(blob, width=None, height=None))
+        assert patched["width"] == 1728
+        assert patched["height"] == 3072
+
+    def test_fps_is_stored_as_float_not_int(self):
+        blob = _patch_render_format(make_blob(), fps=29.97)
+        assert _decode_render_format(blob)["fps"] == pytest.approx(29.97, rel=1e-6)
+
+    def test_patch_preserves_unknown_bytes(self):
+        # two fields in the layout are unidentified; they must survive a patch
+        raw = bytearray(base64.b64decode(make_blob(width=1728)))
+        struct.pack_into("<i", raw, 36, 1)
+        struct.pack_into("<i", raw, 40, 95)
+        patched = base64.b64decode(_patch_render_format(
+            base64.b64encode(bytes(raw)).decode(), width=1080))
+        assert struct.unpack_from("<i", patched, 36)[0] == 1
+        assert struct.unpack_from("<i", patched, 40)[0] == 95
+
+    def test_patch_refuses_a_foreign_encoder(self):
+        with pytest.raises(ValueError, match="not AVFoundation"):
+            _patch_render_format(make_blob(fourcc=b"PMFF"), width=1080)
+
+    def test_decode_reports_foreign_encoder_without_raising(self):
+        decoded = _decode_render_format(make_blob(fourcc=b"PMFF"))
+        assert decoded["encoder"] == "PMFF"
+        assert "width" not in decoded
 
 
 FAST = {"poll_interval": 0.02, "timeout": 5.0}
