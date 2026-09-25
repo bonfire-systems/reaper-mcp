@@ -38,7 +38,7 @@ Issues = "https://github.com/bonfire-systems/reaper-mcp/issues"
 [project.scripts]
 reaper-mcp-server = "reaper_mcp.__main__:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=7.0",
     "ruff>=0.1.0",

@@ -5,21 +5,30 @@ A Model Context Protocol (MCP) server that enables AI agents to control REAPER D
 ## Requirements
 
 - [REAPER](https://www.reaper.fm/) DAW installed and running
-- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (fetches Python 3.10+ automatically if needed)
 - REAPER's distant API enabled (see [Setup](#setting-up-reaper))
 
 ## Installation
 
 ```bash
-pip install reaper-mcp-server
+uv tool install reaper-mcp-server
 ```
 
-Or install from source:
+Or run it without installing:
+
+```bash
+uvx reaper-mcp-server
+```
+
+### From source
 
 ```bash
 git clone https://github.com/bonfire-systems/reaper-mcp.git
 cd reaper-mcp
-pip install -e .
+uv sync                           # create .venv with runtime + dev dependencies
+uv run reaper-mcp-server --debug  # run the server from the checkout
+uv run pytest                     # run tests
+uv run ruff check .               # lint
 ```
 
 ## Setting Up REAPER

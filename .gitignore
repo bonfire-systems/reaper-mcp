@@ -21,6 +21,7 @@ wheels/
 *.egg
 
 # Virtual Environment
+.venv/
 venv/
 ENV/
 env/
@@ -38,3 +39,6 @@ Thumbs.db
 # REAPER specific
 *.RPP-bak
 *.reapeaks
+
+# Claude Code
+.claude/worktrees/
