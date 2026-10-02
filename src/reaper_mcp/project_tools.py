@@ -44,7 +44,10 @@ def register_tools(mcp):
                 os.makedirs(default_dir, exist_ok=True)
                 project_path = str(default_dir / f"{proj_name}.rpp")
             os.makedirs(os.path.dirname(os.path.abspath(project_path)), exist_ok=True)
-            project.save(project_path)
+            # reapy's Project.save() only wraps RPR.Main_SaveProject(proj, force_save_as),
+            # which does not accept a path. Saving to an explicit path (new project, or
+            # "save as") requires RPR.Main_SaveProjectEx(proj, filename, options) directly.
+            RPR.Main_SaveProjectEx(project.id, project_path, 0)
             return {"success": True, "project_path": project_path}
         except Exception as e:
             logger.error(f"save_project failed: {e}")
