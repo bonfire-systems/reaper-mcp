@@ -1,6 +1,6 @@
 # REAPER MCP Server
 
-A Model Context Protocol (MCP) server that enables AI agents to control REAPER DAW — 58 tools covering project management, tracks, MIDI, FX, mixing, mastering, rendering, and audio analysis.
+A Model Context Protocol (MCP) server that enables AI agents to control REAPER DAW — 60 tools covering project management, tracks, track templates, MIDI, FX, mixing, mastering, rendering, and audio analysis.
 
 ## Requirements
 
@@ -65,13 +65,18 @@ reaper-mcp-server          # start the server
 reaper-mcp-server --debug  # with debug logging
 ```
 
-## Tools (58)
+## Tools (60)
 
 ### Project Management
 `create_project` `load_project` `save_project` `get_project_info` `set_tempo` `set_time_signature` `set_cursor_position` `play_project` `stop_transport`
 
 ### Tracks
 `create_track` `delete_track` `rename_track` `list_tracks` `get_track_info` `set_track_color` `create_bus` `create_send` `remove_send` `list_sends`
+
+### Track Templates
+`list_track_templates` `insert_track_template`
+
+Inserts saved `.RTrackTemplate` files from REAPER's TrackTemplates folder (subfolders included) with their exact FX state, routing, folder structure and items, optionally at a given track position.
 
 ### MIDI
 `create_midi_item` `add_midi_note` `create_chord_progression` `create_drum_pattern`
