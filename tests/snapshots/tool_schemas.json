@@ -403,7 +403,7 @@
     }
   },
   "create_project": {
-    "description": "Create a new REAPER project with the given tempo and time signature.",
+    "description": "Create a new REAPER project, in a new project tab, with the given tempo and\ntime signature. The current project stays open, unsaved changes included.",
     "input_schema": {
       "properties": {
         "name": {

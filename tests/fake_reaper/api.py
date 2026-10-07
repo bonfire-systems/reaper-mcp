@@ -14,7 +14,7 @@ NUMERIC_PROJECT_INFO = {
     "RENDER_SRATE", "RENDER_CHANNELS", "RENDER_BOUNDSFLAG", "RENDER_ADDTOPROJ",
     "RENDER_STARTPOS", "RENDER_ENDPOS",
 }
-NEW_PROJECT = 41929
+NEW_PROJECT_TAB = 41929  # New project tab, ignore default template
 TRANSPORT = {1007: "playing", 1013: "recording", 1016: "stopped"}
 
 
@@ -42,6 +42,8 @@ class FakeReaper:
     saved_paths: list[str] = field(default_factory=list)
     commands: list[int] = field(default_factory=list)
     renders: list[Path] = field(default_factory=list)
+    # Projects moved behind a new tab: (tracks, markers, regions, tempo markers).
+    background_tabs: list[tuple] = field(default_factory=list)
     # Names of the soloed tracks at each render, in render order.
     render_solos: list[list[str]] = field(default_factory=list)
     silent: bool = False
@@ -83,9 +85,12 @@ class FakeReaper:
         if command == RENDER_PROJECT:
             self.renders.append(render(self))
             self.render_solos.append([t.name for t in self.tracks if t.info["I_SOLO"]])
-        elif command == NEW_PROJECT:
-            for contents in (self.tracks, self.markers, self.regions, self.tempo_markers):
-                contents.clear()
+        elif command == NEW_PROJECT_TAB:
+            # The current project moves to a background tab, untouched.
+            self.background_tabs.append(
+                (list(self.tracks), list(self.markers), list(self.regions), list(self.tempo_markers))
+            )
+            self.tracks, self.markers, self.regions, self.tempo_markers = [], [], [], []
         elif command in TRANSPORT:
             self.transport = TRANSPORT[command]
 

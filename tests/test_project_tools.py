@@ -2,7 +2,7 @@
 
 from reapy import reascript_api
 
-NEW_PROJECT = 41929
+NEW_PROJECT_TAB = 41929
 
 
 def test_create_project_sets_tempo_and_time_signature(reaper, call):
@@ -10,16 +10,18 @@ def test_create_project_sets_tempo_and_time_signature(reaper, call):
     result = call("create_project", tempo=90.0, time_signature="7/8")
     assert result["success"] is True
     assert (result["tempo"], result["time_signature"]) == (90.0, "7/8")
-    assert reaper.commands == [NEW_PROJECT]
+    assert reaper.commands == [NEW_PROJECT_TAB]
     assert reaper.tracks == []
     assert reaper.tempo_markers == [[0.0, 90.0, 7, 8]]
+    [(old_tracks, *_)] = reaper.background_tabs
+    assert [t.name for t in old_tracks] == ["old"]
 
 
 def test_create_project_without_time_signature(reaper, call):
     reaper.add_track("old")
     result = call("create_project", tempo=100.0, time_signature="", name="Song")
     assert result == {"success": True, "name": "Song", "tempo": 100.0, "time_signature": ""}
-    assert reaper.commands == [NEW_PROJECT]
+    assert reaper.commands == [NEW_PROJECT_TAB]
     assert reaper.tracks == []
     assert reaper.bpm == 100.0
 

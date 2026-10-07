@@ -4,10 +4,15 @@ from pathlib import Path
 
 from reaper_mcp.reaper import RPR, get_project
 
+# "New project tab, ignore default template": an empty project in a new tab,
+# so nothing open is replaced and REAPER never asks to save.
+NEW_PROJECT_TAB = 41929
+
 
 def create_project(*, tempo: float = 120.0, time_signature: str = "4/4", name: str = "") -> dict:
-    """Create a new REAPER project with the given tempo and time signature."""
-    RPR.Main_OnCommand(41929, 0)  # File: New project
+    """Create a new REAPER project, in a new project tab, with the given tempo and
+    time signature. The current project stays open, unsaved changes included."""
+    RPR.Main_OnCommand(NEW_PROJECT_TAB, 0)
     project = get_project()
     project.bpm = tempo
     if time_signature:

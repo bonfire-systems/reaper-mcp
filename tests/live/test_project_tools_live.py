@@ -1,5 +1,4 @@
-"""Project tools against a running REAPER. create_project is not run here:
-REAPER's "New project" asks to save a dirty project in a modal dialog."""
+"""Project tools against a running REAPER."""
 
 from tests.live.rpr import RPR
 
@@ -60,3 +59,41 @@ def test_save_project_writes_the_file(live_project, call, tmp_path):
     assert result == {"success": True, "project_path": str(target)}
     assert target.is_file()
     assert target.read_text(errors="replace").startswith("<REAPER_PROJECT")
+
+
+NULL_PROJECT = "(ReaProject*)0x0000000000000000"
+NEW_TAB_TEMPLATE = "noprompt:"
+CLOSE_TAB = 40860
+
+
+def open_projects() -> list[str]:
+    tabs = (RPR.EnumProjects(i, "", 512)[0] for i in range(64))
+    return [p for p in tabs if p != NULL_PROJECT]
+
+
+def close_current_tab_without_prompt(tmp_path) -> None:
+    """A fresh tab is dirty and saving a copy does not clean it; reopening that
+    copy with REAPER's noprompt: prefix does, so the tab closes silently."""
+    scratch = tmp_path / "scratch.rpp"
+    RPR.Main_SaveProjectEx(0, str(scratch), 0)
+    RPR.Main_openProject(NEW_TAB_TEMPLATE + str(scratch))
+    RPR.Main_OnCommand(CLOSE_TAB, 0)
+
+
+def test_create_project_opens_a_new_tab_and_keeps_the_current_one(live_project, call, tmp_path):
+    live_project.add_track(0, "unsaved work")
+    assert RPR.IsProjectDirty(0)
+    original = RPR.EnumProjects(-1, "", 512)[0]
+    tabs = len(open_projects())
+    try:
+        result = call("create_project", tempo=95.0, time_signature="7/8", name="Sketch")
+        assert result["success"] is True, result
+        assert len(open_projects()) == tabs + 1
+        assert RPR.EnumProjects(-1, "", 512)[0] != original
+        assert RPR.CountTracks(0) == 0
+        assert (RPR.Master_GetTempo(), time_signature_at_start()) == (pytest.approx(95.0), (7, 8))
+    finally:
+        if RPR.EnumProjects(-1, "", 512)[0] != original:
+            close_current_tab_without_prompt(tmp_path)
+    assert RPR.EnumProjects(-1, "", 512)[0] == original
+    assert live_project.tracks[0].name == "unsaved work"
