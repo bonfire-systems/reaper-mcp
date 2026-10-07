@@ -15,6 +15,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from tests.fake_reaper.api import FakeReaper
 
+# Presets each fake plugin ships with.
+PRESETS = {"ReaEQ": ["Bright", "Warm"], "ReaComp": ["Gentle"], "ReaLimit": [], "ReaSynth": []}
+
 # The plugins the fake REAPER has installed; anything else is "not found".
 INSTALLED_FX = {
     "ReaEQ": ["Gain-Low", "Freq-Low", "Gain-High"],
@@ -106,8 +109,9 @@ class FakeFXParam(float):
 
 
 class FakeFX:
-    def __init__(self, state: FXState) -> None:
+    def __init__(self, state: FXState, index: int) -> None:
         self._state = state
+        self.index = index  # an instance attribute in reapy too
 
     @property
     def name(self) -> str:
@@ -211,7 +215,7 @@ class FakeTrack:
 
     @property
     def fxs(self) -> list[FakeFX]:
-        return [FakeFX(s) for s in self._state.fxs]
+        return [FakeFX(s, i) for i, s in enumerate(self._state.fxs)]
 
     @property
     def n_items(self) -> int:
@@ -227,7 +231,7 @@ class FakeTrack:
             raise ValueError(f"Can't find FX named {name}")
         state = FXState(name, [0.5] * len(INSTALLED_FX[name]))
         self._state.fxs.append(state)
-        return FakeFX(state)
+        return FakeFX(state, len(self._state.fxs) - 1)
 
     def add_midi_item(self, start=0, end=1, quantize=False) -> FakeItem:
         state = ItemState(self._reaper.new_pointer("MediaItem"), start, end - start, midi=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tests.fake_reaper.objects import ItemState, Send, TrackState
+from tests.fake_reaper.objects import PRESETS, ItemState, Send, TrackState
 from tests.fake_reaper.project import FakeProject
 from tests.fake_reaper.render import render
 
@@ -234,6 +234,30 @@ class FakeReaper:
             if state.selected:
                 state.items.append(ItemState(self.new_pointer("MediaItem"), self.cursor, 2.0, False))
         return 1
+
+    def TrackFX_SetParamNormalized(self, track: str, fx: int, param: int, value: float) -> bool:
+        self.track(track).fxs[fx].values[param] = value
+        return True
+
+    def TrackFX_SetPreset(self, track: str, fx: int, preset: str) -> bool:
+        state = self.track(track).fxs[fx]
+        if preset not in PRESETS[state.plugin]:
+            return False
+        state.preset = preset
+        return True
+
+    def _display(self, state, param: int, value: float) -> str:
+        if state.plugin == "ReaLimit" and param == 0:
+            return f"{value * 72 - 60:+.2f} dB"  # ReaLimit's threshold: -60..+12 dB
+        return f"{value:.2f}"
+
+    def TrackFX_GetFormattedParamValue(self, track, fx, param, buf, size) -> list:
+        state = self.track(track).fxs[fx]
+        return [True, track, fx, param, self._display(state, param, state.values[param]), size]
+
+    def TrackFX_FormatParamValueNormalized(self, track, fx, param, value, buf, size) -> list:
+        state = self.track(track).fxs[fx]
+        return [True, track, fx, param, value, self._display(state, param, value), size]
 
     def TrackFX_Delete(self, track: str, fx_index: int) -> bool:
         del self.track(track).fxs[fx_index]

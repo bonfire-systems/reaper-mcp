@@ -14,21 +14,22 @@ def _fx_track(reaper):
 # add_fx
 
 
-def test_add_fx_compares_fx_object_bug(reaper, call):
+def test_add_fx(reaper, call):
     track = reaper.add_track("Bus")
-    result = call("add_fx", track_index=0, fx_name="ReaComp")
-    # BUG: reapy add_fx returns an FX, not an index, so `< 0` raises; every add reports failure.
-    assert result["success"] is False
-    assert result["error"].startswith("'<' not supported between instances of")
-    assert result["error"].endswith("and 'int'")
-    # ...yet the plugin was inserted.
-    assert [(f.plugin, f.values) for f in track.fxs] == [("ReaComp", [0.5] * 4)]
+    first = call("add_fx", track_index=0, fx_name="ReaComp")
+    second = call("add_fx", track_index=0, fx_name="ReaEQ")
+    assert first == {
+        "success": True, "fx_index": 0, "name": "VST: ReaComp (Cockos)", "n_params": 4,
+        "track_index": 0,
+    }
+    assert second["fx_index"] == 1
+    assert [f.plugin for f in track.fxs] == ["ReaComp", "ReaEQ"]
 
 
 def test_add_fx_missing_plugin(reaper, call):
     track = reaper.add_track("Bus")
     result = call("add_fx", track_index=0, fx_name="NoSuchVerb")
-    assert result == {"success": False, "error": "Can't find FX named NoSuchVerb"}
+    assert result == {"success": False, "error": "Plugin not found: 'NoSuchVerb'"}
     assert track.fxs == []
 
 
@@ -62,7 +63,7 @@ def test_remove_fx_bad_track(reaper, call):
 # set_fx_parameter
 
 
-def test_set_fx_parameter_no_effect_bug(reaper, call):
+def test_set_fx_parameter(reaper, call):
     track = _fx_track(reaper)
     result = call("set_fx_parameter", track_index=0, fx_index=1, param_index=1, value=0.9)
     assert result == {
@@ -73,8 +74,7 @@ def test_set_fx_parameter_no_effect_bug(reaper, call):
         "param_name": "Ratio",
         "value": 0.9,
     }
-    # BUG: FXParam has `normalized`, not `normalized_value`; the write hits a throwaway proxy.
-    assert track.fxs[1].values == [0.4, 0.5, 0.6, 0.7]
+    assert track.fxs[1].values == [0.4, 0.9, 0.6, 0.7]
 
 
 def test_set_fx_parameter_bad_param(reaper, call):
@@ -92,12 +92,14 @@ def test_set_fx_parameter_bad_fx(reaper, call):
 # get_fx_parameters
 
 
-def test_get_fx_parameters_wrong_attribute_bug(reaper, call):
+def test_get_fx_parameters(reaper, call):
     _fx_track(reaper)
-    result = call("get_fx_parameters", track_index=0, fx_index=0)
-    # BUG: FXParam has `normalized`/`formatted`, not `normalized_value`; reading params always fails.
-    assert result["success"] is False
-    assert result["error"].endswith("object has no attribute 'normalized_value'")
+    result = call("get_fx_parameters", track_index=0, fx_index=1)
+    assert result["success"] is True
+    assert result["fx_name"] == "VST: ReaComp (Cockos)"
+    assert result["parameters"][1] == {
+        "index": 1, "name": "Ratio", "normalized_value": 0.5, "formatted_value": "0.50",
+    }
 
 
 def test_get_fx_parameters_no_params(reaper, call):
@@ -172,17 +174,23 @@ def test_bypass_fx_bad_fx(reaper, call):
 # load_fx_preset
 
 
-def test_load_fx_preset_no_effect_bug(reaper, call):
+def test_load_fx_preset(reaper, call):
     track = _fx_track(reaper)
-    result = call("load_fx_preset", track_index=0, fx_index=0, preset_name="Vocal Air")
+    result = call("load_fx_preset", track_index=0, fx_index=0, preset_name="Warm")
     assert result == {
         "success": True,
         "track_index": 0,
         "fx_index": 0,
         "fx_name": "VST: ReaEQ (Cockos)",
-        "preset": "Vocal Air",
+        "preset": "Warm",
     }
-    # BUG: reapy FX has `preset`, not `preset_name`; the preset is never loaded in REAPER.
+    assert [f.preset for f in track.fxs] == ["Warm", ""]
+
+
+def test_load_fx_preset_missing(reaper, call):
+    track = _fx_track(reaper)
+    result = call("load_fx_preset", track_index=0, fx_index=0, preset_name="Vocal Air")
+    assert result == {"success": False, "error": "VST: ReaEQ (Cockos) has no preset named 'Vocal Air'"}
     assert [f.preset for f in track.fxs] == ["", ""]
 
 
