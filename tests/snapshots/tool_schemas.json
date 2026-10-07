@@ -294,7 +294,9 @@
           "type": "string"
         },
         "track_indices": {
-          "items": {},
+          "items": {
+            "type": "integer"
+          },
           "title": "Track Indices",
           "type": "array"
         }

@@ -21,8 +21,10 @@ def add_volume_automation(*, track_index: int, position: float, value_db: float)
                 "in REAPER and choose 'Show envelope for track volume'."
             ),
         }
-    linear_val = db_to_linear(value_db)
-    RPR.InsertEnvelopePoint(envelope, position, linear_val, 0, 0, False, True)
+    # Volume envelopes usually use fader scaling, where a raw linear 0.5 is near
+    # silence; convert to the envelope's own scale.
+    raw = RPR.ScaleToEnvelopeMode(RPR.GetEnvelopeScalingMode(envelope), db_to_linear(value_db))
+    RPR.InsertEnvelopePoint(envelope, position, raw, 0, 0, False, True)
     RPR.Envelope_SortPoints(envelope)
     return {"success": True, "track_index": track_index, "position": position, "value_db": value_db}
 
@@ -43,7 +45,8 @@ def add_pan_automation(*, track_index: int, position: float, pan: float) -> dict
                 "in REAPER and choose 'Show envelope for track pan'."
             ),
         }
-    RPR.InsertEnvelopePoint(envelope, position, pan, 0, 0, False, True)
+    # REAPER's pan envelope runs opposite to track pan: +1 is full left there.
+    RPR.InsertEnvelopePoint(envelope, position, -pan, 0, 0, False, True)
     RPR.Envelope_SortPoints(envelope)
     return {"success": True, "track_index": track_index, "position": position, "pan": pan}
 
@@ -84,14 +87,16 @@ def remove_send(*, source_track_index: int, send_index: int) -> dict:
     """Remove a send from a track by its index."""
     project = get_project()
     track = project.tracks[source_track_index]
-    RPR.RemoveTrackSend(track.id, 0, send_index)
+    if not RPR.RemoveTrackSend(track.id, 0, send_index):
+        return {"success": False, "error": f"track {source_track_index} has no send {send_index}"}
     return {"success": True, "source_track_index": source_track_index, "send_index": send_index}
 
 def set_send_volume(*, source_track_index: int, send_index: int, volume_db: float) -> dict:
     """Set the volume of a send in dB."""
     project = get_project()
     track = project.tracks[source_track_index]
-    RPR.SetTrackSendInfo_Value(track.id, 0, send_index, "D_VOL", db_to_linear(volume_db))
+    if not RPR.SetTrackSendInfo_Value(track.id, 0, send_index, "D_VOL", db_to_linear(volume_db)):
+        return {"success": False, "error": f"track {source_track_index} has no send {send_index}"}
     return {
         "success": True,
         "source_track_index": source_track_index,
@@ -99,20 +104,20 @@ def set_send_volume(*, source_track_index: int, send_index: int, volume_db: floa
         "volume_db": volume_db,
     }
 
-def create_bus(*, name: str, track_indices: list) -> dict:
+def create_bus(*, name: str, track_indices: list[int]) -> dict:
     """
     Create a new bus track and route the given tracks to it via sends.
     track_indices: list of track indices to feed into the bus.
     """
     project = get_project()
+    sources = [project.tracks[idx] for idx in track_indices]  # IndexError before any change
     bus_idx = project.n_tracks
     project.add_track(bus_idx, name)
     bus_track = project.tracks[bus_idx]
-    sends = []
-    for idx in track_indices:
-        src = project.tracks[idx]
-        send_i = RPR.CreateTrackSend(src.id, bus_track.id)
-        sends.append({"track_index": idx, "send_index": send_i})
+    sends = [
+        {"track_index": idx, "send_index": RPR.CreateTrackSend(src.id, bus_track.id)}
+        for idx, src in zip(track_indices, sources, strict=True)
+    ]
     return {
         "success": True,
         "bus_index": bus_idx,

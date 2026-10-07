@@ -309,6 +309,15 @@ class FakeReaper:
     def Envelope_SortPoints(self, envelope: str) -> bool:
         return True
 
+    def GetEnvelopeScalingMode(self, envelope: str) -> int:
+        """REAPER's volume envelopes use fader scaling (1); pan is linear (0)."""
+        return 1 if envelope.endswith("|Volume") else 0
+
+    def ScaleToEnvelopeMode(self, mode: int, value: float) -> float:
+        """A stand-in for REAPER's fader curve, distinguishable from the raw
+        value; the real curve is exercised by tests/live (-6 dB renders -6 dB)."""
+        return value * 1000.0 if mode == 1 else value
+
 
 RPR_FUNCTIONS = sorted(
     name for name, value in vars(FakeReaper).items() if name[:1].isupper() and callable(value)

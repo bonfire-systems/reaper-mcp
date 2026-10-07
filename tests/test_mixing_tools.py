@@ -19,7 +19,7 @@ def test_db_to_linear():
 # add_volume_automation
 
 
-def test_add_volume_automation_inserts_linear_point(reaper, call):
+def test_add_volume_automation_inserts_a_fader_scaled_point(reaper, call):
     reaper.add_track("A")
     vox = reaper.add_track("Vox")
     reaper.show_envelope(vox, "Volume")
@@ -27,7 +27,8 @@ def test_add_volume_automation_inserts_linear_point(reaper, call):
     assert result == {"success": True, "track_index": 1, "position": 2.5, "value_db": -6.0}
     [(time, value)] = reaper.envelopes[(vox.pointer, "Volume")]
     assert time == 2.5
-    assert value == pytest.approx(_db_to_linear(-6.0))
+    # The fake's stand-in fader curve is 1000 * linear (see its ScaleToEnvelopeMode).
+    assert value == pytest.approx(1000 * _db_to_linear(-6.0))
 
 
 def test_add_volume_automation_floor_is_silence(reaper, call):
@@ -60,12 +61,13 @@ def test_add_volume_automation_bad_track(reaper, call):
 # add_pan_automation
 
 
-def test_add_pan_automation_inserts_raw_point(reaper, call):
+def test_add_pan_automation_inverts_for_the_envelope(reaper, call):
     track = reaper.add_track("A")
     reaper.show_envelope(track, "Pan")
     result = call("add_pan_automation", track_index=0, position=4.0, pan=-0.5)
     assert result == {"success": True, "track_index": 0, "position": 4.0, "pan": -0.5}
-    assert reaper.envelopes[(track.pointer, "Pan")] == [(4.0, -0.5)]
+    # REAPER's pan envelope runs opposite to track pan (verified by render, tests/live).
+    assert reaper.envelopes[(track.pointer, "Pan")] == [(4.0, 0.5)]
 
 
 def test_add_pan_automation_passes_out_of_range_pan_through(reaper, call):
@@ -73,7 +75,7 @@ def test_add_pan_automation_passes_out_of_range_pan_through(reaper, call):
     reaper.show_envelope(track, "Pan")
     result = call("add_pan_automation", track_index=0, position=0.0, pan=3.0)
     assert result["success"] is True
-    assert reaper.envelopes[(track.pointer, "Pan")] == [(0.0, 3.0)]
+    assert reaper.envelopes[(track.pointer, "Pan")] == [(0.0, -3.0)]
 
 
 def test_add_pan_automation_envelope_hidden(reaper, call):
@@ -247,24 +249,25 @@ def test_create_bus_no_sources(reaper, call):
     assert [t.name for t in reaper.tracks] == ["Empty"]
 
 
-def test_create_bus_invalid_index_leaves_partial_bus_bug(reaper, call):
+def test_create_bus_bad_index_changes_nothing(reaper, call):
     kick = reaper.add_track("Kick")
     result = call("create_bus", name="Drums", track_indices=[0, 7])
-    # BUG: a failed create_bus leaves the new bus track and the sends made so far in the project.
     assert result == {"success": False, "error": OUT_OF_RANGE}
-    assert [t.name for t in reaper.tracks] == ["Kick", "Drums"]
-    assert [s.dest for s in kick.sends] == [reaper.tracks[1].pointer]
+    assert [t.name for t in reaper.tracks] == ["Kick"]
+    assert kick.sends == []
 
 
-def test_remove_send_bad_send_index_reports_success_bug(reaper, call):
-    # BUG: REAPER's RemoveTrackSend returns false for a missing send; the tool ignores it and reports success.
-    track = reaper.add_track("Src")
-    assert call("remove_send", source_track_index=0, send_index=5)["success"] is True
-    assert track.sends == []
-
-
-def test_set_send_volume_bad_send_index_reports_success_bug(reaper, call):
-    # BUG: SetTrackSendInfo_Value returns false for a missing send; the tool ignores it and reports success.
+def test_remove_send_bad_send_index(reaper, call):
     reaper.add_track("Src")
-    result = call("set_send_volume", source_track_index=0, send_index=5, volume_db=-6.0)
-    assert result["success"] is True
+    assert call("remove_send", source_track_index=0, send_index=5) == {
+        "success": False, "error": "track 0 has no send 5",
+    }
+
+
+def test_set_send_volume_bad_send_index(reaper, call):
+    reaper.add_track("Src")
+    assert call("set_send_volume", source_track_index=0, send_index=5, volume_db=-6.0) == {
+        "success": False, "error": "track 0 has no send 5",
+    }
+
+
