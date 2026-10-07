@@ -8,15 +8,6 @@ from tests.live.rpr import RPR
 
 pytestmark = pytest.mark.live
 
-SHOW_VOLUME_ENVELOPE = 40406
-SHOW_PAN_ENVELOPE = 40407
-
-
-def show_envelope(track, action):
-    RPR.SetOnlyTrackSelected(track.id)
-    RPR.Main_OnCommand(action, 0)
-
-
 def render_rms(call, tmp_path, name):
     out = tmp_path / f"{name}.wav"
     assert call("render_project", output_path=str(out))["success"] is True
@@ -24,19 +15,23 @@ def render_rms(call, tmp_path, name):
     return np.sqrt((data**2).mean(axis=0))
 
 
-def test_volume_automation_sets_the_level_in_db(add_tone, call, tmp_path):
-    track = add_tone("a", 440)
+def test_volume_automation_sets_the_level_in_db(add_tone, call, tmp_path, live_project):
+    add_tone("a", 440)
+    other = add_tone("b", 660)
+    other.set_info_value("B_MUTE", 1)
+    RPR.SetOnlyTrackSelected(other.id)
     plain = render_rms(call, tmp_path, "plain")
-    show_envelope(track, SHOW_VOLUME_ENVELOPE)
+    # No envelope is shown beforehand: the tool shows it, and leaves the
+    # selection as it found it.
     result = call("add_volume_automation", track_index=0, position=0.0, value_db=-6.0)
+    assert [t.is_selected for t in live_project.tracks] == [False, True]
     assert result["success"] is True, result
     automated = render_rms(call, tmp_path, "automated")
     assert 20 * np.log10(automated[0] / plain[0]) == pytest.approx(-6.0, abs=0.1)
 
 
 def test_pan_automation_full_right_is_right(add_tone, call, tmp_path):
-    track = add_tone("a", 440)
-    show_envelope(track, SHOW_PAN_ENVELOPE)
+    add_tone("a", 440)
     assert call("add_pan_automation", track_index=0, position=0.0, pan=1.0)["success"] is True
     left, right = render_rms(call, tmp_path, "panned")
     assert left < 1e-4 < right

@@ -16,8 +16,13 @@ from reapy import reascript_api as _reascript_api
 logger = logging.getLogger("reaper_mcp.reaper")
 
 # reapy hands REAPER object pointers across the bridge as strings such as
-# "(MediaTrack*)0x0000600001234567".
+# "(MediaTrack*)0x0000600001234567". A missing object is a null pointer string,
+# "(TrackEnvelope*)0x0000000000000000", which is truthy: test with is_null().
 Pointer = str
+
+
+def is_null(pointer: Pointer) -> bool:
+    return not pointer or pointer.endswith("0x0000000000000000")
 
 
 class ReaScriptAPI(Protocol):

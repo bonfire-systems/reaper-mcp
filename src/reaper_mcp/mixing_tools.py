@@ -1,26 +1,42 @@
-from reaper_mcp.reaper import RPR, get_project
+from reaper_mcp.reaper import RPR, get_project, is_null
 from reaper_mcp.units import db_to_linear
 
 
 
 
+# "Track: Toggle track volume/pan envelope visible", run on the selected tracks.
+SHOW_ENVELOPE = {"Volume": 40406, "Pan": 40407}
+
+
+def _envelope(project, track, name: str):
+    """The track's envelope called name, shown first if the track has none yet.
+
+    REAPER only creates a track envelope when it is shown, and the show action
+    works on the selected tracks, so the track is selected for that one action
+    and the previous selection is restored afterwards.
+    """
+    envelope = RPR.GetTrackEnvelopeByName(track.id, name)
+    if not is_null(envelope):
+        return envelope
+    tracks = project.tracks
+    selected = [t.id for t in tracks if t.is_selected]
+    RPR.SetOnlyTrackSelected(track.id)
+    RPR.Main_OnCommand(SHOW_ENVELOPE[name], 0)
+    for t in tracks:
+        RPR.SetTrackSelected(t.id, t.id in selected)
+    envelope = RPR.GetTrackEnvelopeByName(track.id, name)
+    if is_null(envelope):
+        raise RuntimeError(f"REAPER did not create the {name.lower()} envelope")
+    return envelope
+
+
 def add_volume_automation(*, track_index: int, position: float, value_db: float) -> dict:
     """
-    Add a volume automation point on a track.
-    The volume envelope must be visible in REAPER (right-click track > Show envelope).
+    Add a volume automation point on a track, showing its volume envelope if needed.
     position: time in seconds. value_db: volume level in dB.
     """
     project = get_project()
-    track = project.tracks[track_index]
-    envelope = RPR.GetTrackEnvelopeByName(track.id, "Volume")
-    if not envelope:
-        return {
-            "success": False,
-            "error": (
-                "Volume envelope not found. Show it first: right-click the track "
-                "in REAPER and choose 'Show envelope for track volume'."
-            ),
-        }
+    envelope = _envelope(project, project.tracks[track_index], "Volume")
     # Volume envelopes usually use fader scaling, where a raw linear 0.5 is near
     # silence; convert to the envelope's own scale.
     raw = RPR.ScaleToEnvelopeMode(RPR.GetEnvelopeScalingMode(envelope), db_to_linear(value_db))
@@ -28,27 +44,19 @@ def add_volume_automation(*, track_index: int, position: float, value_db: float)
     RPR.Envelope_SortPoints(envelope)
     return {"success": True, "track_index": track_index, "position": position, "value_db": value_db}
 
+
 def add_pan_automation(*, track_index: int, position: float, pan: float) -> dict:
     """
-    Add a pan automation point on a track.
-    The pan envelope must be visible in REAPER.
+    Add a pan automation point on a track, showing its pan envelope if needed.
     pan: -1.0 (full left) to 1.0 (full right).
     """
     project = get_project()
-    track = project.tracks[track_index]
-    envelope = RPR.GetTrackEnvelopeByName(track.id, "Pan")
-    if not envelope:
-        return {
-            "success": False,
-            "error": (
-                "Pan envelope not found. Show it first: right-click the track "
-                "in REAPER and choose 'Show envelope for track pan'."
-            ),
-        }
+    envelope = _envelope(project, project.tracks[track_index], "Pan")
     # REAPER's pan envelope runs opposite to track pan: +1 is full left there.
     RPR.InsertEnvelopePoint(envelope, position, -pan, 0, 0, False, True)
     RPR.Envelope_SortPoints(envelope)
     return {"success": True, "track_index": track_index, "position": position, "pan": pan}
+
 
 def create_send(
     *,

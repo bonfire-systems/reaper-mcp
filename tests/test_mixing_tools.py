@@ -38,18 +38,14 @@ def test_add_volume_automation_floor_is_silence(reaper, call):
     assert reaper.envelopes[(track.pointer, "Volume")] == [(0.0, 0.0)]
 
 
-def test_add_volume_automation_envelope_hidden(reaper, call):
+def test_add_volume_automation_shows_a_missing_envelope_and_keeps_the_selection(reaper, call):
     track = reaper.add_track("A")
-    reaper.show_envelope(track, "Pan")
-    result = call("add_volume_automation", track_index=0, position=1.0, value_db=0.0)
-    assert result == {
-        "success": False,
-        "error": (
-            "Volume envelope not found. Show it first: right-click the track "
-            "in REAPER and choose 'Show envelope for track volume'."
-        ),
-    }
-    assert reaper.envelopes == {(track.pointer, "Pan"): []}
+    other = reaper.add_track("B")
+    other.selected = True
+    assert call("add_volume_automation", track_index=0, position=1.0, value_db=0.0)["success"] is True
+    assert reaper.commands == [40406]  # Track: Toggle track volume envelope visible
+    assert reaper.envelopes == {(track.pointer, "Volume"): [(1.0, 1000.0)]}
+    assert (track.selected, other.selected) == (False, True)
 
 
 def test_add_volume_automation_bad_track(reaper, call):
@@ -78,18 +74,12 @@ def test_add_pan_automation_passes_out_of_range_pan_through(reaper, call):
     assert reaper.envelopes[(track.pointer, "Pan")] == [(0.0, -3.0)]
 
 
-def test_add_pan_automation_envelope_hidden(reaper, call):
+def test_add_pan_automation_shows_a_missing_envelope(reaper, call):
     track = reaper.add_track("A")
-    reaper.show_envelope(track, "Volume")
-    result = call("add_pan_automation", track_index=0, position=1.0, pan=0.0)
-    assert result == {
-        "success": False,
-        "error": (
-            "Pan envelope not found. Show it first: right-click the track "
-            "in REAPER and choose 'Show envelope for track pan'."
-        ),
-    }
-    assert reaper.envelopes == {(track.pointer, "Volume"): []}
+    assert call("add_pan_automation", track_index=0, position=1.0, pan=0.5)["success"] is True
+    assert reaper.commands == [40407]  # Track: Toggle track pan envelope visible
+    assert reaper.envelopes == {(track.pointer, "Pan"): [(1.0, -0.5)]}
+    assert track.selected is False
 
 
 def test_add_pan_automation_bad_track(reaper, call):
@@ -271,3 +261,12 @@ def test_set_send_volume_bad_send_index(reaper, call):
     }
 
 
+
+
+def test_automation_reports_an_envelope_reaper_did_not_create(reaper, call, monkeypatch):
+    from reapy import reascript_api
+
+    reaper.add_track("A")
+    monkeypatch.setattr(reascript_api, "Main_OnCommand", lambda *_: None)
+    result = call("add_volume_automation", track_index=0, position=1.0, value_db=0.0)
+    assert result == {"success": False, "error": "REAPER did not create the volume envelope"}

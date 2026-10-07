@@ -83,7 +83,7 @@
     }
   },
   "add_pan_automation": {
-    "description": "Add a pan automation point on a track.\nThe pan envelope must be visible in REAPER.\npan: -1.0 (full left) to 1.0 (full right).",
+    "description": "Add a pan automation point on a track, showing its pan envelope if needed.\npan: -1.0 (full left) to 1.0 (full right).",
     "input_schema": {
       "properties": {
         "pan": {
@@ -109,7 +109,7 @@
     }
   },
   "add_volume_automation": {
-    "description": "Add a volume automation point on a track.\nThe volume envelope must be visible in REAPER (right-click track > Show envelope).\nposition: time in seconds. value_db: volume level in dB.",
+    "description": "Add a volume automation point on a track, showing its volume envelope if needed.\nposition: time in seconds. value_db: volume level in dB.",
     "input_schema": {
       "properties": {
         "position": {

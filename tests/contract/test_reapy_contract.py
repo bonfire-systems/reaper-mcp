@@ -37,6 +37,13 @@ def test_bpm_reads_in_beats_of_the_denominator(project):
     assert RPR.Master_GetTempo() == pytest.approx(90.0)
 
 
+def test_a_missing_envelope_is_a_truthy_null_pointer(project):
+    track = project.add_track(0, "t")
+    envelope = RPR.GetTrackEnvelopeByName(track.id, "Volume")
+    assert envelope == "(TrackEnvelope*)0x0000000000000000"
+    assert envelope  # truthy: `if not envelope` cannot detect it
+
+
 def test_time_signature_is_read_only(project):
     with pytest.raises(AttributeError):
         project.time_signature = (3, 4)

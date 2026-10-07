@@ -276,6 +276,14 @@ class FakeTrack:
         else:
             self.unsolo()
 
+    @property
+    def is_selected(self) -> bool:
+        return self._state.selected
+
+    @is_selected.setter
+    def is_selected(self, value: bool) -> None:
+        self._state.selected = value
+
     def mute(self) -> None:
         self.is_muted = True
 

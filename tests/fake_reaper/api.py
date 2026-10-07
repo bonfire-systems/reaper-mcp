@@ -16,6 +16,8 @@ NUMERIC_PROJECT_INFO = {
 }
 NEW_PROJECT_TAB = 41929  # New project tab, ignore default template
 TRANSPORT = {1007: "playing", 1013: "recording", 1016: "stopped"}
+# Track: Toggle track volume / pan envelope visible (on the selected tracks).
+SHOW_ENVELOPE = {40406: "Volume", 40407: "Pan"}
 
 
 @dataclass
@@ -93,6 +95,10 @@ class FakeReaper:
             self.tracks, self.markers, self.regions, self.tempo_markers = [], [], [], []
         elif command in TRANSPORT:
             self.transport = TRANSPORT[command]
+        elif command in SHOW_ENVELOPE:
+            for state in self.tracks:
+                if state.selected:
+                    self.envelopes.setdefault((state.pointer, SHOW_ENVELOPE[command]), [])
 
     def Main_openProject(self, path: str) -> None:
         self.opened.append(path)
@@ -308,7 +314,10 @@ class FakeReaper:
     # Envelopes
 
     def GetTrackEnvelopeByName(self, track: str, name: str) -> str:
-        return f"(TrackEnvelope*){track}|{name}" if (track, name) in self.envelopes else ""
+        # REAPER returns a null pointer string, not "", for a missing envelope.
+        if (track, name) not in self.envelopes:
+            return "(TrackEnvelope*)0x0000000000000000"
+        return f"(TrackEnvelope*){track}|{name}"
 
     def InsertEnvelopePoint(self, envelope, time, value, shape, tension, selected, no_sort) -> bool:
         track, name = envelope.removeprefix("(TrackEnvelope*)").rsplit("|", 1)
