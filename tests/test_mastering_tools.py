@@ -128,16 +128,21 @@ def test_apply_mastering_chain_unknown_preset(reaper, call):
 # apply_limiter
 
 
-def test_apply_limiter_sets_the_threshold(reaper, call):
-    result = call("apply_limiter", threshold_db=-1.0, release_ms=80.0)
-    assert result["success"] is True
-    assert (result["fx_index"], result["threshold"]) == (0, "-1.00 dB")
-    assert result["release_ms_applied"] is False
-    assert "release_ms=80.0 was not applied" in result["hint"]
+def test_apply_limiter_sets_threshold_and_release(reaper, call):
+    result = call("apply_limiter", threshold_db=-1.0, release_db_per_sec=12.0)
+    assert result == {
+        "success": True, "fx_index": 0, "name": "VST: ReaLimit (Cockos)", "n_params": 3,
+        "threshold": "-1.00 dB", "release": "12.0 dB/sec",
+    }
     [limiter] = reaper.master.fxs
-    # The bisection runs over REAPER's two-decimal display, so it is exact to that.
+    # Bisection over the two-decimal display is exact to the display.
     assert limiter.values[0] * 72 - 60 == pytest.approx(-1.0, abs=0.005)
-    assert limiter.values[1:] == [0.5, 0.5]
+    assert 6 / limiter.values[2] ** 0.5 == pytest.approx(12.0, abs=0.05)
+
+
+def test_apply_limiter_release_past_the_range_lands_on_its_end(reaper, call):
+    result = call("apply_limiter", release_db_per_sec=2.0)
+    assert result["release"] == "6.0 dB/sec"
 
 
 # analyze_loudness

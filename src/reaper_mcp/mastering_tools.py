@@ -11,10 +11,9 @@ MASTERING_PRESETS = {
 }
 
 
-# ReaLimit's threshold, in dB, is parameter 0. Its release control reads in
-# dB/sec (REAPER's own formatter), so a release in milliseconds has no honest
-# mapping onto it.
-LIMITER_THRESHOLD = 0
+# ReaLimit's parameters, found by name. Its release control reads in dB/sec.
+LIMITER_THRESHOLD = "Threshold"
+LIMITER_RELEASE = "Release"
 
 
 def _added(fx) -> dict:
@@ -87,45 +86,46 @@ def apply_mastering_chain(*, preset: str = "default") -> dict:
     return {"success": True, "preset": preset, "fx_chain": added, "missing": missing}
 
 
-def _normalized_for_display(track, fx_index: int, param_index: int, *, target: float) -> float:
-    """The normalized value whose displayed value is target, by bisection over
-    REAPER's own formatter (no side effects), for a parameter that rises with it."""
-    def shown(value: float) -> float:
-        text = RPR.TrackFX_FormatParamValueNormalized(track.id, fx_index, param_index, value, "", 64)[5]
-        return float(text.split()[0])
+def _shown(track, fx_index: int, param_index: int, *, value: float) -> float:
+    """The number REAPER would display for value, without setting it."""
+    text = RPR.TrackFX_FormatParamValueNormalized(track.id, fx_index, param_index, value, "", 64)[5]
+    return float(text.split()[0])  # "-3.00 dB", "12.0 dB/sec", "inf"
 
+
+def _set_to_display(track, fx, param_name: str, *, target: float) -> str:
+    """Set fx's parameter so REAPER displays target, by bisection over REAPER's
+    own formatter, rising or falling; returns what REAPER then displays.
+
+    The result is the first value that reaches target, so it is exact to the
+    display's precision; a target past the range lands on its end.
+    """
+    param_index = next(i for i in range(fx.n_params) if fx.params[i].name == param_name)
+    rising = (_shown(track, fx.index, param_index, value=0.25)
+              < _shown(track, fx.index, param_index, value=0.75))
     low, high = 0.0, 1.0
     for _ in range(40):
         middle = (low + high) / 2
-        low, high = (middle, high) if shown(middle) < target else (low, middle)
-    # high is the smallest value displayed at or above target; the midpoint can
-    # land one display step below it.
-    return high
+        shown = _shown(track, fx.index, param_index, value=middle)
+        short = shown < target if rising else shown > target
+        low, high = (middle, high) if short else (low, middle)
+    RPR.TrackFX_SetParamNormalized(track.id, fx.index, param_index, high)
+    return RPR.TrackFX_GetFormattedParamValue(track.id, fx.index, param_index, "", 64)[4]
 
 
-def apply_limiter(*, threshold_db: float = -0.5, release_ms: float = 50.0) -> dict:
+def apply_limiter(*, threshold_db: float = -0.5, release_db_per_sec: float = 15.0) -> dict:
     """
-    Add ReaLimit to the master track.
-    After adding, use set_master_fx_parameter with the parameter indices from
-    get_fx_parameters to set the threshold and release values.
+    Add ReaLimit to the master track and set its threshold and release.
+    threshold_db: -60 to +12 dB.
+    release_db_per_sec: how fast gain reduction recovers, in dB per second as
+    ReaLimit displays it (about 6 and up; higher recovers faster; default 15).
     """
     master = get_project().master_track
     fx = add_plugin(master, "ReaLimit")
     if fx is None:
         return {"success": False, "error": "ReaLimit not found — check REAPER installation"}
-    value = _normalized_for_display(master, fx.index, LIMITER_THRESHOLD, target=threshold_db)
-    RPR.TrackFX_SetParamNormalized(master.id, fx.index, LIMITER_THRESHOLD, value)
-    shown = RPR.TrackFX_GetFormattedParamValue(master.id, fx.index, LIMITER_THRESHOLD, "", 64)[4]
-    return {
-        **_added(fx),
-        "threshold": shown,
-        "release_ms_applied": False,
-        "hint": (
-            f"ReaLimit added at index {fx.index} with its threshold at {shown}. Its release "
-            f"control is in dB/sec, so release_ms={release_ms} was not applied; set it with "
-            "get_fx_parameters and set_master_fx_parameter."
-        ),
-    }
+    threshold = _set_to_display(master, fx, LIMITER_THRESHOLD, target=threshold_db)
+    release = _set_to_display(master, fx, LIMITER_RELEASE, target=release_db_per_sec)
+    return {**_added(fx), "threshold": threshold, "release": release}
 
 
 def analyze_loudness() -> dict:

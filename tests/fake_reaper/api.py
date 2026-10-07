@@ -254,6 +254,10 @@ class FakeReaper:
     def _display(self, state, param: int, value: float) -> str:
         if state.plugin == "ReaLimit" and param == 0:
             return f"{value * 72 - 60:+.2f} dB"  # ReaLimit's threshold: -60..+12 dB
+        if state.plugin == "ReaLimit" and param == 2:
+            # ReaLimit's release falls from "inf" as the control rises. A stand-in
+            # curve; REAPER's own is exercised by tests/live.
+            return "inf" if value <= 0 else f"{6 / value**0.5:.1f} dB/sec"
         return f"{value:.2f}"
 
     def TrackFX_GetFormattedParamValue(self, track, fx, param, buf, size) -> list:

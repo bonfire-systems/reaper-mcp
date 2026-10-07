@@ -227,12 +227,12 @@
     }
   },
   "apply_limiter": {
-    "description": "Add ReaLimit to the master track.\nAfter adding, use set_master_fx_parameter with the parameter indices from\nget_fx_parameters to set the threshold and release values.",
+    "description": "Add ReaLimit to the master track and set its threshold and release.\nthreshold_db: -60 to +12 dB.\nrelease_db_per_sec: how fast gain reduction recovers, in dB per second as\nReaLimit displays it (about 6 and up; higher recovers faster; default 15).",
     "input_schema": {
       "properties": {
-        "release_ms": {
-          "default": 50.0,
-          "title": "Release Ms",
+        "release_db_per_sec": {
+          "default": 15.0,
+          "title": "Release Db Per Sec",
           "type": "number"
         },
         "threshold_db": {

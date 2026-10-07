@@ -57,11 +57,13 @@ def test_master_fx_chain_and_limiter(live_project, call):
     chain = call("apply_mastering_chain", preset="loud")
     assert chain["success"] is True, chain
     assert [fx["fx_index"] for fx in chain["fx_chain"]] == [0, 1, 2, 3]
-    limiter = call("apply_limiter", threshold_db=-3.0)
+    limiter = call("apply_limiter", threshold_db=-3.0, release_db_per_sec=12.0)
     assert limiter["success"] is True, limiter
     master = live_project.master_track
-    formatted = RPR.TrackFX_GetFormattedParamValue(master.id, limiter["fx_index"], 0, "", 64)[4]
-    assert float(formatted.split()[0]) == pytest.approx(-3.0, abs=0.05)
+    shown = [RPR.TrackFX_GetFormattedParamValue(master.id, limiter["fx_index"], i, "", 64)[4]
+             for i in (0, 2)]  # ReaLimit: 0 Threshold, 2 Release
+    assert float(shown[0].split()[0]) == pytest.approx(-3.0, abs=0.01)
+    assert float(shown[1].split()[0]) == pytest.approx(12.0, abs=0.05)
     assert call("set_master_fx_parameter", fx_index=0, param_index=0, value=0.4)["success"] is True
     assert master.fxs[0].params[0].normalized == pytest.approx(0.4, abs=1e-6)
 
