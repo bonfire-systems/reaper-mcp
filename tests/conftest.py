@@ -3,6 +3,7 @@ import json
 import anyio
 import pytest
 from mcp.client import Client
+from mcp.types import TextContent
 
 from reaper_mcp.server import mcp
 from tests.fake_reaper import FakeReaper, install
@@ -43,6 +44,7 @@ async def _call(name: str, arguments: dict) -> dict:
     # Tools are annotated `-> dict`, which the SDK serializes as one JSON text
     # block rather than structured content.
     [block] = result.content
+    assert isinstance(block, TextContent), block
     return json.loads(block.text)
 
 

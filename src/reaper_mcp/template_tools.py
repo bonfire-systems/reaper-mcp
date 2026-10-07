@@ -18,6 +18,7 @@ position with ReorderSelectedTracks (default: end of the project).
 import difflib
 import logging
 from pathlib import Path
+from typing import Any
 
 from reaper_mcp.reaper import RPR, ensure_connected, get_project
 
@@ -81,7 +82,7 @@ def find_templates(template_dir: Path) -> list[dict]:
         if any(part.startswith(".") for part in path.relative_to(template_dir).parts):
             continue
         rel = path.relative_to(template_dir).with_suffix("").as_posix()
-        entry = {
+        entry: dict[str, Any] = {
             "name": path.stem,
             "path": rel,
             "file": str(path),

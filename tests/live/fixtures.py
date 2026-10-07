@@ -11,7 +11,7 @@ import sys
 
 import pytest
 import reapy
-from reapy import reascript_api as RPR
+from tests.live.rpr import RPR
 
 from tests.live.watchdog import Watchdog, guard_reapy
 
@@ -37,8 +37,8 @@ def reset(project: reapy.Project) -> None:
     for region in list(project.regions):
         region.delete()
     master = project.master_track
-    for fx in reversed(list(master.fxs)):
-        fx.delete()
+    for i in reversed(range(master.n_fxs)):
+        master.fxs[i].delete()
     for i in reversed(range(RPR.CountTempoTimeSigMarkers(0))):
         RPR.DeleteTempoTimeSigMarker(0, i)
     # Deleting the last marker leaves its time signature as the project's, so

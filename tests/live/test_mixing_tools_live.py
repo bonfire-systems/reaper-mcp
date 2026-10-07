@@ -4,7 +4,7 @@ a mono tone and measuring where it lands, not by reading the points back."""
 import numpy as np
 import pytest
 import soundfile as sf
-from reapy import reascript_api as RPR
+from tests.live.rpr import RPR
 
 pytestmark = pytest.mark.live
 

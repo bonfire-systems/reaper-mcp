@@ -96,9 +96,10 @@ def get_fx_parameters(*, track_index: int, fx_index: int) -> dict:
 def list_track_fx(*, track_index: int) -> dict:
     """List all FX plugins on a track."""
     track = get_project().tracks[track_index]
+    fxs = track.fxs
     fx_list = [
-        {"index": i, "name": fx.name, "enabled": fx.is_enabled, "n_params": fx.n_params}
-        for i, fx in enumerate(track.fxs)
+        {"index": i, "name": fxs[i].name, "enabled": fxs[i].is_enabled, "n_params": fxs[i].n_params}
+        for i in range(track.n_fxs)
     ]
     return {"success": True, "track_index": track_index, "fx": fx_list}
 

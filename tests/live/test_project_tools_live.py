@@ -1,7 +1,7 @@
 """Project tools against a running REAPER. create_project is not run here:
 REAPER's "New project" asks to save a dirty project in a modal dialog."""
 
-from reapy import reascript_api as RPR
+from tests.live.rpr import RPR
 
 import pytest
 

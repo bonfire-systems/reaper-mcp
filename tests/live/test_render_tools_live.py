@@ -1,5 +1,7 @@
 """Rendering against a running REAPER: real files, read back and checked."""
 
+from typing import Any
+
 import numpy as np
 import pytest
 import soundfile as sf
@@ -54,7 +56,7 @@ def test_render_time_selection(add_tone, call, tmp_path, live_project):
     result = call("render_time_selection", output_path=str(out), start=0.5, end=1.5)
     assert result["success"] is True, result
     assert sf.info(str(out)).duration == pytest.approx(1.0, abs=0.01)
-    selection = live_project.time_selection
+    selection: Any = live_project.time_selection  # a TimeSelection; reapy annotates a tuple
     assert (selection.start, selection.end) == pytest.approx((0.1, 0.2))
 
 

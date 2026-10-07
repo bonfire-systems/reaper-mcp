@@ -98,8 +98,10 @@ def _item_summary(index: int, item) -> dict:
 def get_track_info(*, track_index: int) -> dict:
     """Get detailed information about a track including FX and items."""
     track = get_project().tracks[track_index]
+    fxs = track.fxs
     fx_list = [
-        {"index": i, "name": fx.name, "enabled": fx.is_enabled} for i, fx in enumerate(track.fxs)
+        {"index": i, "name": fxs[i].name, "enabled": fxs[i].is_enabled}
+        for i in range(track.n_fxs)
     ]
     items = [_item_summary(i, item) for i, item in enumerate(track.items)]
     return {

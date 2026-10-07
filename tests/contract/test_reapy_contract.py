@@ -8,7 +8,7 @@ the same thing in REAPER.
 """
 
 import pytest
-from reapy import reascript_api as RPR
+from tests.live.rpr import RPR
 from reapy.errors import DistError
 
 from tests.fake_reaper import install

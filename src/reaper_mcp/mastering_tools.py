@@ -32,9 +32,10 @@ def add_master_fx(*, fx_name: str) -> dict:
 def list_master_fx() -> dict:
     """List all FX plugins on the master track."""
     master = get_project().master_track
+    fxs = master.fxs
     fx_list = [
-        {"index": i, "name": fx.name, "enabled": fx.is_enabled, "n_params": fx.n_params}
-        for i, fx in enumerate(master.fxs)
+        {"index": i, "name": fxs[i].name, "enabled": fxs[i].is_enabled, "n_params": fxs[i].n_params}
+        for i in range(master.n_fxs)
     ]
     return {"success": True, "fx": fx_list}
 

@@ -64,7 +64,7 @@ def detect_clipping() -> dict:
 
     tmp = render_to_temp_file()
     try:
-        data, rate = sf.read(tmp)
+        data, _ = sf.read(tmp)
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
@@ -142,7 +142,7 @@ def analyze_stereo_field() -> dict:
 
     tmp = render_to_temp_file()
     try:
-        data, rate = sf.read(tmp)
+        data, _ = sf.read(tmp)
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)

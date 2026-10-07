@@ -154,13 +154,14 @@ def test_create_chord_progression(reaper, call):
         "total_length": 4.0,
     }
     assert (item.position, item.length, item.midi) == (1.0, 4.0, True)
-    assert item.notes == [
-        Note(0.0, pytest.approx(1.9), 60, 80, 0),
-        Note(0.0, pytest.approx(1.9), 64, 80, 0),
-        Note(0.0, pytest.approx(1.9), 67, 80, 0),
-        Note(2.0, pytest.approx(3.9), 69, 80, 0),
-        Note(2.0, pytest.approx(3.9), 72, 80, 0),
-        Note(2.0, pytest.approx(3.9), 76, 80, 0),
+    notes = [(n.start, round(n.end, 9), n.pitch, n.velocity, n.channel) for n in item.notes]
+    assert notes == [
+        (0.0, 1.9, 60, 80, 0),
+        (0.0, 1.9, 64, 80, 0),
+        (0.0, 1.9, 67, 80, 0),
+        (2.0, 3.9, 69, 80, 0),
+        (2.0, 3.9, 72, 80, 0),
+        (2.0, 3.9, 76, 80, 0),
     ]
 
 
