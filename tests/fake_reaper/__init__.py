@@ -13,6 +13,7 @@ import reapy
 from reapy import reascript_api
 
 from tests.fake_reaper.api import RPR_FUNCTIONS, FakeReaper
+from tests.fake_reaper.signatures import checked
 
 
 def install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeReaper:
@@ -20,7 +21,7 @@ def install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeReaper:
     monkeypatch.setattr(reapy, "connect", lambda *a, **k: None)
     monkeypatch.setattr(reapy, "Project", lambda *a, **k: fake.project)
     for name in RPR_FUNCTIONS:
-        monkeypatch.setattr(reascript_api, name, getattr(fake, name), raising=False)
+        monkeypatch.setattr(reascript_api, name, checked(name, getattr(fake, name)), raising=False)
     return fake
 
 

@@ -55,3 +55,28 @@ def test_fake_read_only_properties_stay_read_only():
     with pytest.raises(AttributeError):
         fake_project.time_signature = (3, 4)  # pyright: ignore[reportAttributeAccessIssue]
 
+
+
+def test_calls_are_checked_like_reapers_binding(reaper):
+    from reapy import reascript_api as rpr
+
+    with pytest.raises(TypeError, match="takes 4 arguments"):
+        rpr.GetSetProjectInfo(0, "RENDER_SRATE", 1.0)
+    with pytest.raises(TypeError, match="is not a"):
+        rpr.GetSetProjectInfo(0, "RENDER_SRATE", None, True)
+    with pytest.raises(TypeError, match="is not a"):
+        rpr.CountTracks("0")
+    with pytest.raises(ValueError, match="not the current project"):
+        rpr.CountTracks(1)
+    assert rpr.CountTracks(0) == 0
+
+
+def test_unknown_info_keys_set_nothing(reaper):
+    from reapy import reascript_api as rpr
+
+    assert rpr.GetSetProjectInfo_String(0, "NOT_A_KEY", "x", True)[0] is False
+    reaper.markers = [(1.0, "verse")]
+    handle = rpr.GetRegionOrMarker(0, 0, "")
+    assert rpr.GetSetRegionOrMarkerInfo_String(0, handle, "p_name", "", False)[0] is False
+    rpr.GetSetRegionOrMarkerInfo_String(0, handle, "P_NAME", "chorus", True)
+    assert reaper.markers == [(1.0, "chorus")]

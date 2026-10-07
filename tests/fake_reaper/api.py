@@ -10,6 +10,7 @@ from tests.fake_reaper.project import FakeProject
 from tests.fake_reaper.render import render
 
 RENDER_PROJECT = 41824
+STRING_PROJECT_INFO = {"RENDER_FILE", "RENDER_PATTERN", "RENDER_FORMAT"}
 NUMERIC_PROJECT_INFO = {
     "RENDER_SRATE", "RENDER_CHANNELS", "RENDER_BOUNDSFLAG", "RENDER_ADDTOPROJ",
     "RENDER_STARTPOS", "RENDER_ENDPOS",
@@ -139,6 +140,8 @@ class FakeReaper:
         return float(self.project_info.get(desc, 0.0))
 
     def GetSetProjectInfo_String(self, project: int, desc: str, value: str, is_set: bool):
+        if desc not in STRING_PROJECT_INFO:
+            return (False, project, desc, "", is_set)  # REAPER: unknown key, nothing set
         if is_set:
             self.project_info[desc] = value
         return (True, project, desc, self.project_info.get(desc, ""), is_set)
@@ -199,7 +202,18 @@ class FakeReaper:
         return {"B_ISREGION": float(is_region), "D_STARTPOS": start, "D_ENDPOS": end}[param]
 
     def GetSetRegionOrMarkerInfo_String(self, project, handle, param, value, is_set) -> list:
+        if param != "P_NAME":
+            return [False, project, handle, param, "", is_set]
+        if is_set:
+            self._rename_marker(handle, value)
         return [True, project, handle, param, self._marker(handle)[3], is_set]
+
+    def _rename_marker(self, handle: str, name: str) -> None:
+        is_region, start, end, _ = self._marker(handle)
+        if is_region:
+            self.regions = [(s, e, name if (s, e) == (start, end) else n) for s, e, n in self.regions]
+        else:
+            self.markers = [(p, name if p == start else n) for p, n in self.markers]
 
     # Tracks
 
