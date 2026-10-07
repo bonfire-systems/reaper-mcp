@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from reapy.errors import DistError
+
 from tests.fake_reaper.objects import FakeMarker, FakeRegion, FakeTrack, TrackState
 
 if TYPE_CHECKING:
@@ -102,7 +104,10 @@ class FakeProject:
         """reapy forwards to Main_SaveProject(proj, forceSaveAsIn), and REAPER's
         Python binding rejects anything that is not an int-compatible flag."""
         if not isinstance(force_save_as, (bool, int)):
-            raise TypeError(
-                f"'{type(force_save_as).__name__}' object cannot be interpreted as an integer"
+            # Raised inside REAPER, so reapy re-raises it as a DistError.
+            raise DistError(
+                "  File \"reaper_python.py\", in RPR_Main_SaveProject\n"
+                f"TypeError: '{type(force_save_as).__name__}' object cannot be interpreted as "
+                "an integer\n"
             )
         self._reaper.saves.append(bool(force_save_as))

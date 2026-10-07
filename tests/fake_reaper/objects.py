@@ -96,7 +96,9 @@ class FakeFXParam(float):
 
     @normalized.setter
     def normalized(self, value: float) -> None:
-        self._state.values[self._index] = value
+        """Observed on REAPER 7.82 with reapy 0.10: the setter reads
+        ``parent_fx.id``, which reapy's FX does not have, and raises."""
+        raise AttributeError("'FX' object has no attribute 'id'")
 
     @property
     def formatted(self) -> str:
@@ -246,7 +248,11 @@ class FakeTrack:
 
     @is_solo.setter
     def is_solo(self, value: bool) -> None:
-        self._state.info["I_SOLO"] = float(value)
+        # reapy's setter calls solo()/unsolo(); see solo().
+        if value:
+            self.solo()
+        else:
+            self.unsolo()
 
     def mute(self) -> None:
         self.is_muted = True
@@ -255,10 +261,12 @@ class FakeTrack:
         self.is_muted = False
 
     def solo(self) -> None:
-        self.is_solo = True
+        """Observed on REAPER 7.82: reapy toggles solo through action 7 on the
+        selected tracks, which leaves the solo state unchanged. Only I_SOLO
+        (set_info_value / SetMediaTrackInfo_Value) changes it."""
 
     def unsolo(self) -> None:
-        self.is_solo = False
+        """See solo()."""
 
     def get_info_value(self, param: str) -> float:
         return self._state.info[param]

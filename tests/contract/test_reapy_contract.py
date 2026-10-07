@@ -8,6 +8,7 @@ the same thing in REAPER.
 """
 
 import pytest
+from reapy.errors import DistError
 
 from tests.fake_reaper import install
 from tests.live.conftest import live_project  # noqa: F401 -- fixture, used by name
@@ -33,7 +34,7 @@ def test_time_signature_is_read_only(project):
 
 
 def test_save_rejects_a_path(project):
-    with pytest.raises(TypeError):
+    with pytest.raises(DistError, match="cannot be interpreted as an integer"):
         project.save("/tmp/never-written.rpp")
 
 
@@ -65,12 +66,24 @@ def test_solo_and_mute_are_methods_and_assignment_does_nothing(project):
     assert fresh.is_muted is False
 
 
-def test_solo_and_mute_methods_take_effect(project):
+def test_mute_takes_effect_but_solo_does_not(project):
+    """reapy mutes through action 40280, which works, and solos through
+    action 7, which leaves solo unchanged on REAPER 7.82; is_solo's setter
+    goes through the same path."""
     project.add_track(0, "t")
-    project.tracks[0].solo()
     project.tracks[0].mute()
-    assert project.tracks[0].is_solo is True
+    project.tracks[0].solo()
+    project.tracks[0].is_solo = True
     assert project.tracks[0].is_muted is True
+    assert project.tracks[0].is_solo is False
+
+
+def test_solo_through_track_info_takes_effect(project):
+    project.add_track(0, "t")
+    project.tracks[0].set_info_value("I_SOLO", 2)
+    assert project.tracks[0].is_solo is True
+    project.tracks[0].set_info_value("I_SOLO", 0)
+    assert project.tracks[0].is_solo is False
 
 
 def test_markers_and_regions_have_no_name(project):
@@ -81,12 +94,13 @@ def test_markers_and_regions_have_no_name(project):
     assert project.markers[0].position == pytest.approx(1.0)
 
 
-def test_fx_param_normalized_round_trips(project):
+def test_fx_param_normalized_setter_is_broken_in_reapy(project):
+    """reapy 0.10's setter reads parent_fx.id, which FX does not have."""
     track = project.add_track(0, "fx")
-    fx = track.add_fx("ReaEQ")
-    fx.params[0].normalized = 0.25
+    track.add_fx("ReaEQ")
     param = track.fxs[0].params[0]
-    assert param.normalized == pytest.approx(0.25, abs=1e-3)
+    with pytest.raises(AttributeError, match="has no attribute 'id'"):
+        param.normalized = 0.25
     assert not hasattr(param, "normalized_value")
     assert not hasattr(param, "formatted_value")
 

@@ -52,10 +52,10 @@ def test_save_project_with_path_bug(reaper, call, tmp_path):
     target = tmp_path / "out" / "song.rpp"
     result = call("save_project", project_path=str(target))
     # BUG: reapy's Project.save takes a force_save_as flag, not a path, so saving never works.
-    assert result == {
-        "success": False,
-        "error": "'str' object cannot be interpreted as an integer",
-    }
+    # The error is REAPER's own traceback, relayed by reapy as a DistError.
+    assert result["success"] is False
+    assert "An error occurred while running a function inside REAPER" in result["error"]
+    assert "'str' object cannot be interpreted as an integer" in result["error"]
     assert target.parent.is_dir()
     assert reaper.saves == []
 
