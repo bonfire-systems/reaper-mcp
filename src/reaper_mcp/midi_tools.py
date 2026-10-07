@@ -1,8 +1,6 @@
-import logging
 
 from reaper_mcp.reaper import get_project
 
-logger = logging.getLogger("reaper_mcp.midi_tools")
 
 # GM standard drum MIDI notes
 DRUM_MAPPINGS = {
@@ -47,10 +45,10 @@ def _parse_chord(chord_str: str):
     chord_str = chord_str.strip()
     if len(chord_str) >= 2 and chord_str[1] in ("#", "b"):
         root = chord_str[:2]
-        chord_type = chord_str[2:] or "maj"
+        chord_type = chord_str[2:]
     else:
         root = chord_str[:1]
-        chord_type = chord_str[1:] or "maj"
+        chord_type = chord_str[1:]
     intervals = CHORD_TYPES.get(chord_type, CHORD_TYPES["maj"])
     root_num = NOTE_TO_NUMBER.get(root, 0)
     return intervals, root_num
@@ -110,6 +108,17 @@ def add_midi_note(
         "channel": channel,
     }
 
+def _add_chord(take, chord_str: str, *, start: float, length: float) -> None:
+    """The chord's notes, voiced from middle C, held for 95% of its length.
+    _parse_chord never fails: unknown roots and types fall back to C major."""
+    intervals, root_num = _parse_chord(chord_str)
+    for interval in intervals:
+        take.add_note(
+            start=start, end=start + length * 0.95, pitch=60 + root_num + interval,
+            velocity=80, channel=0,
+        )
+
+
 def create_chord_progression(
     *,
     track_index: int,
@@ -133,27 +142,9 @@ def create_chord_progression(
     item = track.add_midi_item(start_position, start_position + total_length)
     take = item.active_take
     added_chords = []
-
     for i, chord_str in enumerate(chord_list):
-        try:
-            intervals, root_num = _parse_chord(chord_str)
-            chord_start = i * chord_length
-            for interval in intervals:
-                note_num = 60 + root_num + interval
-                take.add_note(
-                    start=chord_start,
-                    end=chord_start + chord_length * 0.95,
-                    pitch=note_num,
-                    velocity=80,
-                    channel=0,
-                )
-            added_chords.append({
-                "chord": chord_str,
-                "position": chord_start,
-                "length": chord_length,
-            })
-        except Exception as e:
-            logger.warning(f"Skipping chord '{chord_str}': {e}")
+        _add_chord(take, chord_str, start=i * chord_length, length=chord_length)
+        added_chords.append({"chord": chord_str, "position": i * chord_length, "length": chord_length})
 
     return {
         "success": True,

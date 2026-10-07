@@ -104,8 +104,8 @@ def _trim_start(item, seconds: float) -> None:
     reapy's Take.start_offset is read-only, so D_STARTOFFS is set directly."""
     item.position += seconds
     item.length -= seconds
-    take = item.active_take
-    if take:
+    if item.n_takes:  # reapy's active_take is truthy even when there is none
+        take = item.active_take
         offset = take.get_info_value("D_STARTOFFS")
         take.set_info_value("D_STARTOFFS", offset + seconds * take.get_info_value("D_PLAYRATE"))
 

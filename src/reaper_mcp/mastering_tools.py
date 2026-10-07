@@ -147,7 +147,7 @@ def analyze_loudness() -> dict:
         if integrated == float("-inf"):
             return {"success": False, "error": "Project appears to be silent"}
         peak_linear = float(np.max(np.abs(data)))
-        peak_db = float(20 * np.log10(peak_linear)) if peak_linear > 0 else -120.0
+        peak_db = float(20 * np.log10(peak_linear))  # silence returned above
         return {
             "success": True,
             "integrated_lufs": round(integrated, 1),

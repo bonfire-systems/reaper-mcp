@@ -66,9 +66,16 @@ def create_send(
     project = get_project()
     src = project.tracks[source_track_index]
     dst = project.tracks[dest_track_index]
+    # REAPER can answer with a valid index and create nothing (a send from a
+    # track to itself returns 0), so the send count is the evidence.
+    before = RPR.GetTrackNumSends(src.id, 0)
     send_idx = RPR.CreateTrackSend(src.id, dst.id)
-    if send_idx < 0:
-        return {"success": False, "error": "Failed to create send"}
+    if RPR.GetTrackNumSends(src.id, 0) != before + 1:
+        return {
+            "success": False,
+            "error": f"REAPER did not create a send from track {source_track_index} "
+                     f"to track {dest_track_index}",
+        }
     RPR.SetTrackSendInfo_Value(src.id, 0, send_idx, "D_VOL", db_to_linear(volume_db))
     return {
         "success": True,

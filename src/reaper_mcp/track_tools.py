@@ -86,12 +86,12 @@ def _mix_state(track) -> dict:
 
 
 def _item_summary(index: int, item) -> dict:
-    take = item.active_take
+    # reapy's active_take is a truthy Take even for an empty item (a null take).
     return {
         "index": index,
         "position": item.position,
         "length": item.length,
-        "name": take.name if take else "",
+        "name": item.active_take.name if item.n_takes else "",
     }
 
 

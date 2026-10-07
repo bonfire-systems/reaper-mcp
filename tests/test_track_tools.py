@@ -212,3 +212,10 @@ def test_set_track_color_keeps_even_channels(reaper, call):
 
 def test_set_track_color_out_of_range(reaper, call):
     assert call("set_track_color", track_index=0, r=0, g=0, b=0) == OUT_OF_RANGE
+
+
+def test_get_track_info_with_an_empty_item(reaper, call):
+    state = reaper.add_track("a")
+    state.items.append(ItemState("(MediaItem*)0x1", 0.0, 2.0, midi=False, has_take=False))
+    [item] = call("get_track_info", track_index=0)["items"]
+    assert item == {"index": 0, "position": 0.0, "length": 2.0, "name": ""}

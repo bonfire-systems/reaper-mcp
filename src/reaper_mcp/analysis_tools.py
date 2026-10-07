@@ -69,10 +69,7 @@ def detect_clipping() -> dict:
         if os.path.exists(tmp):
             os.unlink(tmp)
 
-    if data.ndim > 1:
-        mono = np.max(np.abs(data), axis=1)
-    else:
-        mono = np.abs(data)
+    mono = np.max(np.abs(data), axis=1)  # render_to_temp_file always renders stereo
 
     clip_threshold = 0.9999
     clipped_samples = int(np.sum(mono >= clip_threshold))
@@ -103,7 +100,7 @@ def analyze_dynamics() -> dict:
         if os.path.exists(tmp):
             os.unlink(tmp)
 
-    mono = np.mean(data, axis=1) if data.ndim > 1 else data
+    mono = np.mean(data, axis=1)  # render_to_temp_file always renders stereo
     rms = float(np.sqrt(np.mean(mono ** 2)))
     peak = float(np.max(np.abs(mono)))
     rms_db = float(20 * np.log10(rms)) if rms > 0 else -120.0
@@ -147,8 +144,6 @@ def analyze_stereo_field() -> dict:
         if os.path.exists(tmp):
             os.unlink(tmp)
 
-    if data.ndim < 2 or data.shape[1] < 2:
-        return {"success": False, "error": "Project rendered as mono; cannot analyze stereo field"}
 
     L, R = data[:, 0], data[:, 1]
     if not (L.any() and R.any()):

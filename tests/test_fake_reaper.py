@@ -8,9 +8,11 @@ the same writability.
 """
 
 import inspect
+from typing import Any
 
 import pytest
 import reapy.core
+from reapy import reascript_api
 from reapy.core.project.time_selection import TimeSelection
 
 from tests.fake_reaper import objects, project
@@ -58,7 +60,8 @@ def test_fake_read_only_properties_stay_read_only():
 
 
 def test_calls_are_checked_like_reapers_binding(reaper):
-    from reapy import reascript_api as rpr
+    # Untyped on purpose: these are calls the type checker would refuse too.
+    rpr: Any = reascript_api
 
     with pytest.raises(TypeError, match="takes 4 arguments"):
         rpr.GetSetProjectInfo(0, "RENDER_SRATE", 1.0)
@@ -72,7 +75,7 @@ def test_calls_are_checked_like_reapers_binding(reaper):
 
 
 def test_unknown_info_keys_set_nothing(reaper):
-    from reapy import reascript_api as rpr
+    rpr: Any = reascript_api
 
     assert rpr.GetSetProjectInfo_String(0, "NOT_A_KEY", "x", True)[0] is False
     reaper.markers = [(1.0, "verse")]

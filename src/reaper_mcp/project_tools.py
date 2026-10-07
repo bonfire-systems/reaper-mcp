@@ -105,10 +105,15 @@ def _set_time_signature(numerator: int, denominator: int) -> None:
     """Set the time signature at the start of the project.
 
     REAPER keeps it on a tempo/time signature marker at position 0: edit that
-    marker when there is one, otherwise add it at the current tempo.
+    marker when there is one, otherwise add one at the current tempo.
     """
-    index = 0 if _marker_at_start() else -1
-    RPR.SetTempoTimeSigMarker(0, index, 0.0, -1, -1, _tempo(), numerator, denominator, False)
+    marker = _marker_at_start()
+    if marker is None:
+        RPR.SetTempoTimeSigMarker(0, -1, 0.0, -1, -1, _tempo(), numerator, denominator, False)
+        return
+    # Keep the marker's own tempo and linear flag: only the signature changes.
+    bpm, linear = marker[6], marker[9]
+    RPR.SetTempoTimeSigMarker(0, 0, 0.0, -1, -1, bpm, numerator, denominator, linear)
 
 
 def _set_tempo(project, bpm: float) -> None:

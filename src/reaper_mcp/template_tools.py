@@ -16,13 +16,11 @@ position with ReorderSelectedTracks (default: end of the project).
 """
 
 import difflib
-import logging
 from pathlib import Path
 from typing import Any
 
 from reaper_mcp.reaper import RPR, ensure_connected, get_project
 
-logger = logging.getLogger("reaper_mcp.template_tools")
 
 TEMPLATE_SUFFIX = ".rtracktemplate"
 
@@ -210,7 +208,7 @@ def insert_track_template(*, template: str, position: int | None = None) -> dict
         "template": path.stem,
         "file": str(path),
         "inserted_count": len(tracks),
-        "first_track_index": tracks[0]["index"] if tracks else None,
+        "first_track_index": tracks[0]["index"],  # inserted_guids is never empty here
         "tracks": tracks,
     }
 
@@ -240,8 +238,6 @@ def _open_and_place(path: Path, before: list[str], position: int) -> set[str]:
 def _move_inserted(inserted: list[int], position: int) -> None:
     n_inserted = len(inserted)
     first = inserted[0]
-    if inserted != list(range(first, first + n_inserted)):
-        logger.warning(f"inserted tracks are not contiguous: {inserted}")
 
     # Select exactly the inserted tracks so ReorderSelectedTracks moves
     # them and nothing else, and so the result matches REAPER's native

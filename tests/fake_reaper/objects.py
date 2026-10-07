@@ -51,6 +51,7 @@ class ItemState:
     length: float
     midi: bool
     notes: list[Note] = field(default_factory=list)
+    has_take: bool = True  # REAPER items can hold no take at all
     info: dict[str, float] = field(
         default_factory=lambda: {"D_FADEINLEN": 0.0, "D_FADEOUTLEN": 0.0}
     )
@@ -74,6 +75,7 @@ class TrackState:
     fxs: list[FXState] = field(default_factory=list)
     items: list[ItemState] = field(default_factory=list)
     sends: list[Send] = field(default_factory=list)
+    hardware_outputs: int = 0
     info: dict[str, float] = field(
         default_factory=lambda: {"D_VOL": 1.0, "D_PAN": 0.0, "B_MUTE": 0.0, "I_SOLO": 0.0}
     )
@@ -204,7 +206,7 @@ class FakeItem:
 
     @property
     def n_takes(self) -> int:
-        return 1
+        return 1 if self._state.has_take else 0
 
     def get_info_value(self, param: str) -> float:
         return self._state.info[param]

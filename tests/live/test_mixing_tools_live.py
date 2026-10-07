@@ -59,3 +59,11 @@ def test_create_bus_refuses_a_bad_index_without_side_effects(live_project, call)
     assert result["success"] is False
     assert live_project.n_tracks == 1
     assert RPR.GetTrackNumSends(live_project.tracks[0].id, 0) == 0
+
+
+def test_a_send_to_itself_is_reported_not_created(live_project, call):
+    """REAPER answers CreateTrackSend(track, track) with index 0 and creates nothing."""
+    live_project.add_track(0, "a")
+    result = call("create_send", source_track_index=0, dest_track_index=0)
+    assert result == {"success": False, "error": "REAPER did not create a send from track 0 to track 0"}
+    assert RPR.GetTrackNumSends(live_project.tracks[0].id, 0) == 0

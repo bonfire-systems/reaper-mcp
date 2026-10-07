@@ -50,6 +50,8 @@ class FakeReaper:
     # Names of the soloed tracks at each render, in render order.
     render_solos: list[list[str]] = field(default_factory=list)
     silent: bool = False
+    # (amplitude, frequency) of the left and right channels of every render.
+    signal: list[tuple[float, float]] = field(default_factory=lambda: [(0.5, 440.0), (0.25, 660.0)])
     # Seconds of material in the project; 0 is an empty project.
     length: float = 4.0
     _pointer: int = 0
@@ -295,9 +297,16 @@ class FakeReaper:
     # Sends
 
     def CreateTrackSend(self, source: str, dest: str) -> int:
-        sends = self.track(source).sends
-        sends.append(Send(dest))
-        return len(sends) - 1
+        """Like REAPER 7.82: a send from a track to itself returns 0 and is not
+        created; a null destination makes a hardware output."""
+        state = self.track(source)
+        if dest == source:
+            return 0
+        if dest.endswith("0x0000000000000000"):
+            state.hardware_outputs += 1
+            return state.hardware_outputs - 1
+        state.sends.append(Send(dest))
+        return len(state.sends) - 1
 
     def RemoveTrackSend(self, track: str, category: int, send_index: int) -> bool:
         """REAPER returns false for a send index that does not exist; it does not raise."""
@@ -308,6 +317,11 @@ class FakeReaper:
         return True
 
     def GetTrackNumSends(self, track: str, category: int) -> int:
+        """category 0: sends, -1: receives, 1: hardware outputs."""
+        if category < 0:
+            return sum(s.dest == track for t in self.tracks for s in t.sends)
+        if category > 0:
+            return self.track(track).hardware_outputs
         return len(self.track(track).sends)
 
     def GetTrackSendInfo_Value(self, track: str, category: int, i: int, param: str) -> float:

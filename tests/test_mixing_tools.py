@@ -281,3 +281,11 @@ def test_automation_reports_an_envelope_reaper_did_not_create(reaper, call, monk
     monkeypatch.setattr(reascript_api, "Main_OnCommand", lambda *_: None)
     result = call("add_volume_automation", track_index=0, position=1.0, value_db=0.0)
     assert result == {"success": False, "error": "REAPER did not create the volume envelope"}
+
+
+def test_create_send_to_itself_is_reported_not_created(reaper, call):
+    src = reaper.add_track("Src")
+    assert call("create_send", source_track_index=0, dest_track_index=0) == {
+        "success": False, "error": "REAPER did not create a send from track 0 to track 0",
+    }
+    assert src.sends == []

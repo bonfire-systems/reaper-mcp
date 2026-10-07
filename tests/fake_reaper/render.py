@@ -49,10 +49,13 @@ def _bounds(reaper: FakeReaper) -> tuple[float, float]:
 
 
 def _signal(reaper: FakeReaper, seconds: float, rate: int) -> np.ndarray:
+    """One sine per channel, from reaper.signal's (amplitude, frequency) pairs;
+    silence when reaper.silent. Rendered as PCM, so peaks past 1.0 clip."""
     t = np.arange(int(rate * seconds)) / rate
     if reaper.silent:
         return np.zeros((len(t), 2))
-    return np.stack([0.5 * np.sin(2 * np.pi * 440 * t), 0.25 * np.sin(2 * np.pi * 660 * t)], axis=1)
+    channels = [amplitude * np.sin(2 * np.pi * hz * t) for amplitude, hz in reaper.signal]
+    return np.clip(np.stack(channels, axis=1), -1.0, 1.0)
 
 
 def render(reaper: FakeReaper) -> Path:
