@@ -7,6 +7,8 @@ from mcp.client import Client
 from reaper_mcp.server import mcp
 from tests.fake_reaper import FakeReaper, install
 
+pytest_plugins = ["tests.live.fixtures"]
+
 
 def pytest_addoption(parser):
     parser.addoption(

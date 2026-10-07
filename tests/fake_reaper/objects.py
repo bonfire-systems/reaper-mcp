@@ -154,7 +154,7 @@ class FakeTake:
     def start_offset(self) -> float:
         return 0.0
 
-    def add_note(  # noqa: PLR0913, PLR0917 -- mirrors reapy.Take.add_note
+    def add_note(
         self, start, end, pitch, velocity=100, channel=0, selected=False,
         muted=False, unit="seconds", sort=True,
     ) -> None:
@@ -273,6 +273,37 @@ class FakeTrack:
 
     def set_info_value(self, param: str, value: float) -> None:
         self._state.info[param] = value
+
+
+class FakeTimeSelection:
+    """reapy.TimeSelection: a live view with settable start, end and length."""
+
+    def __init__(self, reaper: FakeReaper) -> None:
+        self._reaper = reaper
+
+    @property
+    def start(self) -> float:
+        return self._reaper.time_selection[0]
+
+    @start.setter
+    def start(self, value: float) -> None:
+        self._reaper.time_selection = (value, self._reaper.time_selection[1])
+
+    @property
+    def end(self) -> float:
+        return self._reaper.time_selection[1]
+
+    @end.setter
+    def end(self, value: float) -> None:
+        self._reaper.time_selection = (self._reaper.time_selection[0], value)
+
+    @property
+    def length(self) -> float:
+        return self.end - self.start
+
+    @length.setter
+    def length(self, value: float) -> None:
+        self.end = self.start + value
 
 
 class FakeMarker:

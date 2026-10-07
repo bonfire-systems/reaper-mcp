@@ -11,6 +11,7 @@ import inspect
 
 import pytest
 import reapy.core
+from reapy.core.project.time_selection import TimeSelection
 
 from tests.fake_reaper import objects, project
 
@@ -23,6 +24,7 @@ PAIRS = [
     (objects.FakeFXParam, reapy.core.FXParam),
     (objects.FakeMarker, reapy.core.Marker),
     (objects.FakeRegion, reapy.core.Region),
+    (objects.FakeTimeSelection, TimeSelection),
 ]
 
 

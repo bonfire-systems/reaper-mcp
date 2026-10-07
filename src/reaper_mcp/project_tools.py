@@ -87,19 +87,39 @@ def _time_signature_text() -> str:
     return f"{numerator}/{denominator}"
 
 
+def _marker_at_start() -> list | None:
+    """REAPER's tempo/time signature marker at position 0, if there is one:
+    [_, _, index, position, measure, beat, bpm, numerator, denominator, linear]."""
+    if RPR.CountTempoTimeSigMarkers(0) == 0:
+        return None
+    marker = RPR.GetTempoTimeSigMarker(0, 0, 0.0, 0, 0.0, 0.0, 0, 0, False)
+    return marker if marker[3] <= 1e-9 else None
+
+
 def _set_time_signature(numerator: int, denominator: int) -> None:
     """Set the time signature at the start of the project.
 
     REAPER keeps it on a tempo/time signature marker at position 0: edit that
     marker when there is one, otherwise add it at the current tempo.
     """
-    index = -1
-    if RPR.CountTempoTimeSigMarkers(0) > 0:
-        position = RPR.GetTempoTimeSigMarker(0, 0, 0.0, 0, 0.0, 0.0, 0, 0, False)[3]
-        index = 0 if position <= 1e-9 else -1
-    RPR.SetTempoTimeSigMarker(
-        0, index, 0.0, -1, -1, _tempo(), numerator, denominator, False
-    )
+    index = 0 if _marker_at_start() else -1
+    RPR.SetTempoTimeSigMarker(0, index, 0.0, -1, -1, _tempo(), numerator, denominator, False)
+
+
+def _set_tempo(project, bpm: float) -> None:
+    """Set the tempo at the start of the project.
+
+    With a tempo/time signature marker at position 0, reapy's Project.bpm
+    setter (SetCurrentBPM) changes the playing tempo but can leave the
+    marker's own BPM stale (seen on REAPER 7.82 with a 3/4 marker), so the
+    marker is edited directly, keeping its time signature.
+    """
+    marker = _marker_at_start()
+    if marker is None:
+        project.bpm = bpm
+        return
+    numerator, denominator, linear = marker[7], marker[8], marker[9]
+    RPR.SetTempoTimeSigMarker(0, 0, 0.0, -1, -1, bpm, numerator, denominator, linear)
 
 
 def get_project_info() -> dict:
@@ -121,8 +141,7 @@ def get_project_info() -> dict:
 
 def set_tempo(*, bpm: float) -> dict:
     """Set the project tempo in BPM."""
-    project = get_project()
-    project.bpm = bpm
+    _set_tempo(get_project(), bpm)
     return {"success": True, "tempo": _tempo()}
 
 

@@ -95,7 +95,7 @@ def test_get_project_info_empty(reaper, call):
         "path": "/songs",
         "tempo": 120.0,
         "time_signature": "4/4",
-        "length": 8.0,
+        "length": 4.0,
         "track_count": 1,
         "markers": [],
         "regions": [],
@@ -136,3 +136,9 @@ def test_set_time_signature_keeps_a_later_marker(reaper, call):
     reaper.tempo_markers = [[8.0, 140.0, 4, 4]]
     call("set_time_signature", numerator=5, denominator=4)
     assert reaper.tempo_markers == [[0.0, 120.0, 5, 4], [8.0, 140.0, 4, 4]]
+
+
+def test_set_tempo_edits_the_marker_at_the_start(reaper, call):
+    reaper.tempo_markers = [[0.0, 120.0, 3, 4]]
+    assert call("set_tempo", bpm=90.0) == {"success": True, "tempo": 90.0}
+    assert reaper.tempo_markers == [[0.0, 90.0, 3, 4]]

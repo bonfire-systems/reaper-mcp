@@ -23,10 +23,21 @@ def test_set_time_signature(live_project, call):
     assert time_signature_at_start() == (6, 8)
 
 
+def seconds_per_four_quarter_notes() -> float:
+    return RPR.TimeMap_QNToTime(4.0)
+
+
+def test_set_tempo_changes_playback_timing(live_project, call):
+    assert call("set_tempo", bpm=90.0)["tempo"] == pytest.approx(90.0)
+    assert seconds_per_four_quarter_notes() == pytest.approx(4 * 60 / 90)
+
+
 def test_tempo_still_changes_after_a_time_signature(live_project, call):
     call("set_time_signature", numerator=3, denominator=4)
     assert call("set_tempo", bpm=90.0)["tempo"] == pytest.approx(90.0)
-    assert live_project.bpm == pytest.approx(90.0)
+    assert seconds_per_four_quarter_notes() == pytest.approx(4 * 60 / 90)
+    marker = RPR.GetTempoTimeSigMarker(0, 0, 0.0, 0, 0.0, 0.0, 0, 0, False)
+    assert (marker[6], marker[7], marker[8]) == (pytest.approx(90.0), 3, 4)
     assert time_signature_at_start() == (3, 4)
 
 

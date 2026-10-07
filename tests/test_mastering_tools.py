@@ -4,29 +4,13 @@ import numpy as np
 import pytest
 
 from tests.fake_reaper.objects import FXState
+from tests.helpers import assert_rendered_and_deleted
 
 DEFAULT_INFO = {"D_VOL": 1.0, "D_PAN": 0.0, "B_MUTE": 0.0, "I_SOLO": 0.0}
-RENDER = 41824
 
 
 def plugins(reaper):
     return [fx.plugin for fx in reaper.master.fxs]
-
-
-def assert_rendered_and_deleted(reaper, rate=48000):
-    """One render to a .wav temp file at `rate`, 24-bit stereo, removed afterwards."""
-    assert reaper.commands == [RENDER]
-    [path] = reaper.renders
-    assert path.suffix == ".wav"
-    assert not path.exists()
-    assert reaper.project_info == {
-        "RENDER_FILE": str(path),
-        "RENDER_FORMAT": 0,
-        "RENDER_FORMAT2": 2,
-        "RENDER_SRATE": float(rate),
-        "RENDER_CHANNELS": 2.0,
-        "RENDER_BOUNDSFLAG": 0.0,
-    }
 
 
 # add_master_fx

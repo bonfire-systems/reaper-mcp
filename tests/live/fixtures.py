@@ -1,5 +1,8 @@
 """Fixtures for tests that drive a real, running REAPER (selected with --live).
 
+Registered as a plugin by tests/conftest.py, so tests/live and tests/contract
+share them.
+
 Isolation is by reset, not by a new project: REAPER's "New project" asks
 whether to save a dirty project in a modal dialog, which would hang the run.
 """
@@ -65,3 +68,28 @@ def live_project(dialog_watchdog):
     reset(project)
     yield project
     reset(project)
+
+
+def write_tone(path, frequency: float, seconds: float = 2.0, amplitude: float = 0.1) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    rate = 48000
+    tone = amplitude * np.sin(2 * np.pi * frequency * np.arange(int(rate * seconds)) / rate)
+    sf.write(path, np.stack([tone, tone], axis=1), rate)
+
+
+@pytest.fixture
+def add_tone(live_project, tmp_path):
+    """add_tone(name, frequency) -> a new track holding a 2 s stereo sine at 0 s."""
+
+    def add(name: str, frequency: float) -> reapy.Track:
+        wav = tmp_path / f"{name}.wav"
+        write_tone(wav, frequency)
+        track = live_project.add_track(live_project.n_tracks, name)
+        RPR.SetOnlyTrackSelected(track.id)
+        live_project.cursor_position = 0.0
+        RPR.InsertMedia(str(wav), 0)
+        return track
+
+    return add

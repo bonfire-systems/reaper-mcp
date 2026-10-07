@@ -878,10 +878,19 @@
           "type": "integer"
         },
         "track_indices": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": null,
-          "items": {},
-          "title": "Track Indices",
-          "type": "array"
+          "title": "Track Indices"
         }
       },
       "required": [

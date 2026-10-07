@@ -12,7 +12,6 @@ from reapy import reascript_api as RPR
 from reapy.errors import DistError
 
 from tests.fake_reaper import install
-from tests.live.conftest import live_project  # noqa: F401 -- fixture, used by name
 
 
 @pytest.fixture(params=["fake", pytest.param("live", marks=pytest.mark.live)])

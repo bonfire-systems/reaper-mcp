@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 
 from reaper_mcp.analysis_tools import _band_rms_db
+from tests.helpers import assert_rendered_and_deleted
 
-RENDER = 41824
 LEFT, RIGHT = 0.5, 0.25
 # Mono downmix (L + R) / 2: 440 Hz at 0.25 plus 660 Hz at 0.125.
 MONO_440, MONO_660 = LEFT / 2, RIGHT / 2
@@ -25,22 +25,6 @@ BAND_RANGES = {
     "presence": "4000–8000",
     "brilliance": "8000–20000",
 }
-
-
-def assert_rendered_and_deleted(reaper, rate=48000):
-    """One render to a .wav temp file at `rate`, 24-bit stereo, removed afterwards."""
-    assert reaper.commands == [RENDER]
-    [path] = reaper.renders
-    assert path.suffix == ".wav"
-    assert not path.exists()
-    assert reaper.project_info == {
-        "RENDER_FILE": str(path),
-        "RENDER_FORMAT": 0,
-        "RENDER_FORMAT2": 2,
-        "RENDER_SRATE": float(rate),
-        "RENDER_CHANNELS": 2.0,
-        "RENDER_BOUNDSFLAG": 0.0,
-    }
 
 
 def stft_band_db(amplitude, n_bins, n_fft=2048):
@@ -93,16 +77,9 @@ def test_analyze_frequency_spectrum(reaper, call):
     assert levels["low_mids"] == pytest.approx(stft_band_db(MONO_440, 11), abs=0.3)
     assert levels["mids"] == pytest.approx(stft_band_db(MONO_660, 64), abs=0.3)
     others = [v for k, v in levels.items() if k not in {"low_mids", "mids"}]
+    # The bands without a tone hold only window leakage and quantization noise,
+    # which depends on the render's bit depth, so only their ceiling is pinned.
     assert max(others) < levels["mids"] - 20
-    assert levels == {
-        "sub_bass": -6.5,
-        "bass": -5.3,
-        "low_mids": 33.5,
-        "mids": 19.8,
-        "high_mids": -35.3,
-        "presence": -47.4,
-        "brilliance": -59.5,
-    }
     assert_rendered_and_deleted(reaper)
 
 
@@ -233,13 +210,12 @@ def test_analyze_transients(reaper, call):
     times = result["onset_times_seconds"]
     assert result["success"] is True
     assert result["note"] is None
-    # Two steady tones have no real attacks; librosa's default detector still reports
-    # 66 onsets from frame-to-frame flux. Pinned as-is.
-    assert result["onset_count"] == len(times) == 66
+    # Two steady tones have no real attacks, yet librosa's default detector reports
+    # dozens of onsets from frame-to-frame flux and quantization noise; their exact
+    # count depends on the render's bit depth, so only their shape is pinned.
+    assert 0 < result["onset_count"] == len(times) <= 100
     assert times == sorted(times)
     assert 0 < times[0] and times[-1] < 4.0
-    assert times[:5] == [0.035, 0.104, 0.151, 0.209, 0.255]
-    assert times[-3:] == [3.855, 3.901, 3.959]
     # Transient analysis renders at 44.1 kHz instead of the 48 kHz default.
     assert_rendered_and_deleted(reaper, rate=44100)
 

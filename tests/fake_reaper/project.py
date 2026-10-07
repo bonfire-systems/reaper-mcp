@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING
 
 from reapy.errors import DistError
 
-from tests.fake_reaper.objects import FakeMarker, FakeRegion, FakeTrack, TrackState
+from tests.fake_reaper.objects import (
+    FakeMarker,
+    FakeRegion,
+    FakeTimeSelection,
+    FakeTrack,
+    TrackState,
+)
 
 if TYPE_CHECKING:
     from tests.fake_reaper.api import FakeReaper
@@ -25,7 +31,11 @@ class FakeProject:
 
     @bpm.setter
     def bpm(self, value: float) -> None:
+        """SetCurrentBPM: changes the playing tempo, a marker at 0 included."""
         self._reaper.bpm = value
+        for marker in self._reaper.tempo_markers:
+            if marker[0] == 0.0:
+                marker[1] = value
 
     @property
     def time_signature(self) -> tuple[float, float]:
@@ -41,8 +51,8 @@ class FakeProject:
         self._reaper.cursor = value
 
     @property
-    def time_selection(self) -> tuple[float, float]:
-        return self._reaper.time_selection
+    def time_selection(self) -> FakeTimeSelection:
+        return FakeTimeSelection(self._reaper)
 
     @time_selection.setter
     def time_selection(self, value: tuple[float, float]) -> None:
@@ -58,7 +68,7 @@ class FakeProject:
 
     @property
     def length(self) -> float:
-        return 8.0
+        return self._reaper.length
 
     @property
     def n_tracks(self) -> int:
@@ -92,7 +102,7 @@ class FakeProject:
         self._reaper.markers.append((position, name))
         return FakeMarker(position)
 
-    def add_region(self, start, end, name="", color=0) -> FakeRegion:  # noqa: PLR0917 -- mirrors reapy.Project.add_region
+    def add_region(self, start, end, name="", color=0) -> FakeRegion:
         self._reaper.regions.append((start, end, name))
         return FakeRegion(start, end)
 

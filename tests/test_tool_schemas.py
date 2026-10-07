@@ -13,7 +13,6 @@ import os
 from pathlib import Path
 
 import anyio
-import pytest
 from mcp.client import Client
 
 from reaper_mcp.server import mcp
@@ -41,7 +40,6 @@ def test_tool_schemas_match_snapshot():
     assert current == json.loads(SNAPSHOT.read_text())
 
 
-@pytest.mark.xfail(strict=True, reason="render_stems.track_indices is `list = None` (see PR #13)")
 def test_optional_parameters_accept_null():
     """A parameter defaulting to None must admit null in its schema, or the SDK
     rejects an explicit null before the tool runs."""

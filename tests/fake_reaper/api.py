@@ -5,13 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import numpy as np
-import soundfile as sf
-
 from tests.fake_reaper.objects import ItemState, Send, TrackState
 from tests.fake_reaper.project import FakeProject
+from tests.fake_reaper.render import render
 
 RENDER_PROJECT = 41824
+NUMERIC_PROJECT_INFO = {
+    "RENDER_SRATE", "RENDER_CHANNELS", "RENDER_BOUNDSFLAG", "RENDER_ADDTOPROJ",
+    "RENDER_STARTPOS", "RENDER_ENDPOS",
+}
 NEW_PROJECT = 41929
 TRANSPORT = {1007: "playing", 1013: "recording", 1016: "stopped"}
 
@@ -43,6 +45,8 @@ class FakeReaper:
     # Names of the soloed tracks at each render, in render order.
     render_solos: list[list[str]] = field(default_factory=list)
     silent: bool = False
+    # Seconds of material in the project; 0 is an empty project.
+    length: float = 4.0
     _pointer: int = 0
 
     def __post_init__(self) -> None:
@@ -77,7 +81,8 @@ class FakeReaper:
     def Main_OnCommand(self, command: int, flag: int) -> None:
         self.commands.append(command)
         if command == RENDER_PROJECT:
-            self._render()
+            self.renders.append(render(self))
+            self.render_solos.append([t.name for t in self.tracks if t.info["I_SOLO"]])
         elif command == NEW_PROJECT:
             for contents in (self.tracks, self.markers, self.regions, self.tempo_markers):
                 contents.clear()
@@ -115,31 +120,24 @@ class FakeReaper:
 
     # Project settings
 
-    def GetSetProjectInfo(self, project: int, desc: str, value: float, is_set: bool) -> float:  # noqa: PLR0917 -- mirrors the ReaScript signature
-        if is_set:
+    def GetSetProjectInfo(self, project: int, desc: str, value: float, is_set: bool) -> float:
+        # REAPER ignores numeric keys it does not have, such as RENDER_FORMAT
+        # (a string setting) and RENDER_FORMAT2.
+        if is_set and desc in NUMERIC_PROJECT_INFO:
             self.project_info[desc] = value
         return float(self.project_info.get(desc, 0.0))
 
-    def GetSetProjectInfo_String(self, project: int, desc: str, value: str, is_set: bool):  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def GetSetProjectInfo_String(self, project: int, desc: str, value: str, is_set: bool):
         if is_set:
             self.project_info[desc] = value
         return (True, project, desc, self.project_info.get(desc, ""), is_set)
 
-    def _render(self) -> None:
-        """Write what REAPER would: a stereo file at RENDER_FILE, at RENDER_SRATE."""
-        path = Path(str(self.project_info["RENDER_FILE"]))
-        rate = int(self.project_info.get("RENDER_SRATE", 48000))
-        t = np.arange(rate * 4) / rate
-        left = np.zeros_like(t) if self.silent else 0.5 * np.sin(2 * np.pi * 440 * t)
-        right = np.zeros_like(t) if self.silent else 0.25 * np.sin(2 * np.pi * 660 * t)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        sf.write(path, np.stack([left, right], axis=1), rate, format="WAV")
-        self.renders.append(path)
-        self.render_solos.append([t.name for t in self.tracks if t.info["I_SOLO"]])
-
     # Tempo and time signature (return shapes as REAPER 7.82 gives them)
 
     def Master_GetTempo(self) -> float:
+        for position, bpm, _, _ in self.tempo_markers:
+            if position == 0.0:
+                return bpm
         return self.bpm
 
     def CountTempoTimeSigMarkers(self, project: int) -> int:
@@ -149,7 +147,7 @@ class FakeReaper:
         position, bpm, numerator, denominator = self.tempo_markers[index]
         return [True, project, index, position, 0, 0.0, bpm, numerator, denominator, False]
 
-    def SetTempoTimeSigMarker(self, project, index, position, _measure, _beat, bpm, *rest) -> bool:  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def SetTempoTimeSigMarker(self, project, index, position, _measure, _beat, bpm, *rest) -> bool:
         numerator, denominator, _linear = rest
         marker = [position, bpm, numerator, denominator]
         if position == 0.0:
@@ -189,7 +187,7 @@ class FakeReaper:
         is_region, start, end, _ = self._marker(handle)
         return {"B_ISREGION": float(is_region), "D_STARTPOS": start, "D_ENDPOS": end}[param]
 
-    def GetSetRegionOrMarkerInfo_String(self, project, handle, param, value, is_set) -> list:  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def GetSetRegionOrMarkerInfo_String(self, project, handle, param, value, is_set) -> list:
         return [True, project, handle, param, self._marker(handle)[3], is_set]
 
     # Tracks
@@ -259,11 +257,11 @@ class FakeReaper:
     def GetTrackNumSends(self, track: str, category: int) -> int:
         return len(self.track(track).sends)
 
-    def GetTrackSendInfo_Value(self, track: str, category: int, i: int, param: str) -> float:  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def GetTrackSendInfo_Value(self, track: str, category: int, i: int, param: str) -> float:
         send = self.track(track).sends[i]
         return {"D_VOL": send.volume, "D_PAN": send.pan, "B_MUTE": float(send.muted)}[param]
 
-    def SetTrackSendInfo_Value(self, track, category, i, param, value) -> bool:  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def SetTrackSendInfo_Value(self, track, category, i, param, value) -> bool:
         sends = self.track(track).sends
         if not 0 <= i < len(sends):
             return False  # REAPER reports a bad send index by returning false
@@ -279,7 +277,7 @@ class FakeReaper:
     def GetTrackEnvelopeByName(self, track: str, name: str) -> str:
         return f"(TrackEnvelope*){track}|{name}" if (track, name) in self.envelopes else ""
 
-    def InsertEnvelopePoint(self, envelope, time, value, shape, tension, selected, no_sort) -> bool:  # noqa: PLR0917 -- mirrors the ReaScript signature
+    def InsertEnvelopePoint(self, envelope, time, value, shape, tension, selected, no_sort) -> bool:
         track, name = envelope.removeprefix("(TrackEnvelope*)").rsplit("|", 1)
         self.envelopes[(track, name)].append((time, value))
         return True
