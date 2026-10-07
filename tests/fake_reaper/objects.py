@@ -51,6 +51,12 @@ class ItemState:
     length: float
     midi: bool
     notes: list[Note] = field(default_factory=list)
+    info: dict[str, float] = field(
+        default_factory=lambda: {"D_FADEINLEN": 0.0, "D_FADEOUTLEN": 0.0}
+    )
+    take_info: dict[str, float] = field(
+        default_factory=lambda: {"D_STARTOFFS": 0.0, "D_PITCH": 0.0, "D_PLAYRATE": 1.0}
+    )
 
 
 @dataclass
@@ -156,7 +162,13 @@ class FakeTake:
 
     @property
     def start_offset(self) -> float:
-        return 0.0
+        return self._state.take_info["D_STARTOFFS"]
+
+    def get_info_value(self, param: str) -> float:
+        return self._state.take_info[param]
+
+    def set_info_value(self, param: str, value: float) -> None:
+        self._state.take_info[param] = value
 
     def add_note(
         self, start, end, pitch, velocity=100, channel=0, selected=False,
@@ -193,6 +205,12 @@ class FakeItem:
     @property
     def n_takes(self) -> int:
         return 1
+
+    def get_info_value(self, param: str) -> float:
+        return self._state.info[param]
+
+    def set_info_value(self, param: str, value: float) -> None:
+        self._state.info[param] = value
 
 
 class FakeTrack:

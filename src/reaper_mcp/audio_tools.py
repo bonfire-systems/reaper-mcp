@@ -34,7 +34,7 @@ def start_recording(*, track_index: int) -> dict:
     """Arm a track and start recording. Call stop_transport when done."""
     project = get_project()
     track = project.tracks[track_index]
-    track.armed = True
+    track.set_info_value("I_RECARM", 1)  # reapy's Track has no armed property
     RPR.Main_OnCommand(1013, 0)  # Transport: Record
     return {
         "success": True,
@@ -73,26 +73,22 @@ def edit_audio_item(
     end_trim: seconds to remove from the end.
     fade_in/fade_out: fade length in seconds.
     """
-    project = get_project()
-    track = project.tracks[track_index]
-    item = track.items[item_index]
-
+    item = get_project().tracks[track_index].items[item_index]
+    if start_trim < 0 or end_trim < 0 or start_trim + end_trim >= item.length:
+        return {
+            "success": False,
+            "error": f"trims must be >= 0 and leave some of the {item.length:.3f} s item; "
+                     f"got start_trim={start_trim}, end_trim={end_trim}",
+        }
     if start_trim > 0:
-        item.position += start_trim
-        item.length -= start_trim
-        take = item.active_take
-        if take:
-            take.start_offset += start_trim
-
+        _trim_start(item, start_trim)
     if end_trim > 0:
         item.length -= end_trim
-
+    # Through D_FADE*LEN: reapy's Item has no fade properties.
     if fade_in > 0:
-        item.fade_in_length = fade_in
-
+        item.set_info_value("D_FADEINLEN", fade_in)
     if fade_out > 0:
-        item.fade_out_length = fade_out
-
+        item.set_info_value("D_FADEOUTLEN", fade_out)
     return {
         "success": True,
         "track_index": track_index,
@@ -101,18 +97,31 @@ def edit_audio_item(
         "length": item.length,
     }
 
+
+def _trim_start(item, seconds: float) -> None:
+    """Move the item's start later, keeping the audio where it was in time:
+    the take's source offset moves too, in source seconds (scaled by playrate).
+    reapy's Take.start_offset is read-only, so D_STARTOFFS is set directly."""
+    item.position += seconds
+    item.length -= seconds
+    take = item.active_take
+    if take:
+        offset = take.get_info_value("D_STARTOFFS")
+        take.set_info_value("D_STARTOFFS", offset + seconds * take.get_info_value("D_PLAYRATE"))
+
+
 def adjust_pitch(*, track_index: int, item_index: int, semitones: float) -> dict:
     """Adjust the pitch of an audio item by semitones (can be fractional)."""
     project = get_project()
     track = project.tracks[track_index]
     item = track.items[item_index]
     take = item.active_take
-    take.pitch = semitones
+    take.set_info_value("D_PITCH", semitones)  # reapy's Take has no pitch property
     return {
         "success": True,
         "track_index": track_index,
         "item_index": item_index,
-        "pitch_semitones": take.pitch,
+        "pitch_semitones": take.get_info_value("D_PITCH"),
     }
 
 def adjust_playback_rate(*, track_index: int, item_index: int, rate: float) -> dict:
@@ -121,12 +130,12 @@ def adjust_playback_rate(*, track_index: int, item_index: int, rate: float) -> d
     track = project.tracks[track_index]
     item = track.items[item_index]
     take = item.active_take
-    take.playback_rate = rate
+    take.set_info_value("D_PLAYRATE", rate)  # reapy's Take has no playback_rate property
     return {
         "success": True,
         "track_index": track_index,
         "item_index": item_index,
-        "playback_rate": take.playback_rate,
+        "playback_rate": take.get_info_value("D_PLAYRATE"),
     }
 
 

@@ -1,5 +1,7 @@
 """Characterization tests for audio_tools, run end to end against the fake REAPER."""
 
+import pytest
+
 from tests.fake_reaper.objects import ItemState
 
 RECORD, STOP, PLAY = 1013, 1016, 1007
@@ -62,7 +64,7 @@ def test_import_audio_file_bad_track(reaper, call, tmp_path):
 # start_recording / stop_transport / play_project
 
 
-def test_start_recording_does_not_arm_bug(reaper, call):
+def test_start_recording_arms_the_track(reaper, call):
     track = reaper.add_track("Vox")
     result = call("start_recording", track_index=0)
     assert result == {
@@ -71,8 +73,7 @@ def test_start_recording_does_not_arm_bug(reaper, call):
         "message": "Recording started. Call stop_transport to stop.",
     }
     assert (reaper.commands, reaper.transport) == ([RECORD], "recording")
-    # BUG: reapy Track has no `armed`; the assignment lands on a throwaway proxy, so nothing records.
-    assert track.info == {"D_VOL": 1.0, "D_PAN": 0.0, "B_MUTE": 0.0, "I_SOLO": 0.0}
+    assert track.info["I_RECARM"] == 1
 
 
 def test_start_recording_bad_track(reaper, call):
@@ -119,25 +120,31 @@ def test_edit_audio_item_end_trim(reaper, call):
     assert (track.items[0].position, track.items[0].length) == (1.0, 2.5)
 
 
-def test_edit_audio_item_start_trim_bug(reaper, call):
+def test_edit_audio_item_trims_both_ends(reaper, call):
     track = _audio_item(reaper)
+    track.items[0].take_info["D_PLAYRATE"] = 2.0
     result = call("edit_audio_item", track_index=0, item_index=0, start_trim=1.0, end_trim=1.0)
-    assert result["success"] is False
-    assert "start_offset" in result["error"]
-    assert "has no setter" in result["error"]
-    # BUG: Take.start_offset is read-only, so the trim errors after moving the item: audio slides
-    # instead of being trimmed, and end_trim never runs.
-    assert (track.items[0].position, track.items[0].length) == (2.0, 3.0)
+    assert result == {"success": True, "track_index": 0, "item_index": 0, "position": 2.0, "length": 2.0}
+    # The source offset moves in source seconds: one second at double speed is two.
+    assert track.items[0].take_info["D_STARTOFFS"] == 2.0
 
 
-def test_edit_audio_item_fades_bug(reaper, call):
+@pytest.mark.parametrize(("start_trim", "end_trim"), [(2.0, 2.0), (-1.0, 0.0), (0.0, 5.0)])
+def test_edit_audio_item_refuses_impossible_trims(reaper, call, start_trim, end_trim):
+    track = _audio_item(reaper)
+    result = call("edit_audio_item", track_index=0, item_index=0,
+                  start_trim=start_trim, end_trim=end_trim)
+    assert result["success"] is False and "trims must be >= 0" in result["error"]
+    assert (track.items[0].position, track.items[0].length) == (1.0, 4.0)
+
+
+def test_edit_audio_item_fades(reaper, call):
     track = _audio_item(reaper)
     result = call("edit_audio_item", track_index=0, item_index=0, fade_in=0.5, fade_out=0.25)
-    # BUG: reapy Item has no fade_in_length/fade_out_length; reported success, no fades applied.
     assert result == {
         "success": True, "track_index": 0, "item_index": 0, "position": 1.0, "length": 4.0,
     }
-    assert (track.items[0].position, track.items[0].length) == (1.0, 4.0)
+    assert track.items[0].info == {"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25}
 
 
 def test_edit_audio_item_bad_item(reaper, call):
@@ -149,15 +156,13 @@ def test_edit_audio_item_bad_item(reaper, call):
 # adjust_pitch / adjust_playback_rate
 
 
-def test_adjust_pitch_no_effect_bug(reaper, call):
+def test_adjust_pitch(reaper, call):
     track = _audio_item(reaper)
-    before = (track.items[0].position, track.items[0].length)
     result = call("adjust_pitch", track_index=0, item_index=0, semitones=-2.5)
-    # BUG: reapy Take has no `pitch`; the value lands on a throwaway proxy and is echoed back.
     assert result == {
         "success": True, "track_index": 0, "item_index": 0, "pitch_semitones": -2.5,
     }
-    assert (track.items[0].position, track.items[0].length) == before
+    assert track.items[0].take_info["D_PITCH"] == -2.5
 
 
 def test_adjust_pitch_bad_item(reaper, call):
@@ -166,14 +171,13 @@ def test_adjust_pitch_bad_item(reaper, call):
     assert result == {"success": False, "error": "list index out of range"}
 
 
-def test_adjust_playback_rate_no_effect_bug(reaper, call):
+def test_adjust_playback_rate(reaper, call):
     track = _audio_item(reaper)
     result = call("adjust_playback_rate", track_index=0, item_index=0, rate=0.5)
-    # BUG: reapy Take has no `playback_rate`; nothing changes in REAPER though success is reported.
     assert result == {
         "success": True, "track_index": 0, "item_index": 0, "playback_rate": 0.5,
     }
-    assert (track.items[0].position, track.items[0].length) == (1.0, 4.0)
+    assert track.items[0].take_info["D_PLAYRATE"] == 0.5
 
 
 def test_adjust_playback_rate_bad_track(reaper, call):

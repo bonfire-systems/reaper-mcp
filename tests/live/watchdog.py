@@ -26,8 +26,10 @@ import pytest
 
 GRACE_SECONDS = 15.0
 POLL_SECONDS = 1.0
-# REAPER's own progress window while a render runs; it closes itself.
-TRANSIENT_PREFIXES = ("Rendering",)
+# Non-modal windows REAPER opens around a render: the progress window, and the
+# results window ("Finished in 0:00 ...") it reuses and does not always close.
+# Neither blocks a call; a modal (AXDialog) is always reported.
+TRANSIENT_PREFIXES = ("Rendering", "Finished in")
 
 # One line per window: title, tab, subrole. REAPER's alerts ("Nothing to
 # render!") have an empty title and subrole AXDialog, so titles alone miss them.
