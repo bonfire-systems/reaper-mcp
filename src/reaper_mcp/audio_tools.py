@@ -1,170 +1,151 @@
 import os
-import logging
 
-import reapy
-from reapy import reascript_api as RPR
-
-from reaper_mcp.connection import get_project
-
-logger = logging.getLogger("reaper_mcp.audio_tools")
+from reaper_mcp.reaper import RPR, get_project
 
 
-def register_tools(mcp):
+def import_audio_file(*, file_path: str, track_index: int, position: float = 0.0) -> dict:
+    """
+    Import an audio file onto a track at the given position (seconds).
+    Supports all formats REAPER can read: wav, aiff, mp3, flac, ogg, etc.
+    """
+    if not os.path.exists(file_path):
+        return {"success": False, "error": f"File not found: {file_path}"}
+    project = get_project()
+    track = project.tracks[track_index]
+    # Select only this track, set cursor, then insert media at cursor
+    RPR.SetOnlyTrackSelected(track.id)
+    project.cursor_position = position
+    RPR.InsertMedia(file_path, 0)
+    # Retrieve the item that was just created (last item on the track)
+    track_refreshed = project.tracks[track_index]
+    if track_refreshed.n_items == 0:
+        return {"success": False, "error": "Insert succeeded but no item found on track"}
+    item = track_refreshed.items[track_refreshed.n_items - 1]
+    return {
+        "success": True,
+        "track_index": track_index,
+        "item_index": track_refreshed.n_items - 1,
+        "position": item.position,
+        "length": item.length,
+        "file_path": file_path,
+    }
 
-    @mcp.tool()
-    def import_audio_file(file_path: str, track_index: int, position: float = 0.0) -> dict:
-        """
-        Import an audio file onto a track at the given position (seconds).
-        Supports all formats REAPER can read: wav, aiff, mp3, flac, ogg, etc.
-        """
-        try:
-            if not os.path.exists(file_path):
-                return {"success": False, "error": f"File not found: {file_path}"}
-            project = get_project()
-            track = project.tracks[track_index]
-            # Select only this track, set cursor, then insert media at cursor
-            RPR.SetOnlyTrackSelected(track.id)
-            project.cursor_position = position
-            RPR.InsertMedia(file_path, 0)
-            # Retrieve the item that was just created (last item on the track)
-            track_refreshed = project.tracks[track_index]
-            if track_refreshed.n_items == 0:
-                return {"success": False, "error": "Insert succeeded but no item found on track"}
-            item = track_refreshed.items[track_refreshed.n_items - 1]
-            return {
-                "success": True,
-                "track_index": track_index,
-                "item_index": track_refreshed.n_items - 1,
-                "position": item.position,
-                "length": item.length,
-                "file_path": file_path,
-            }
-        except Exception as e:
-            logger.error(f"import_audio_file failed: {e}")
-            return {"success": False, "error": str(e)}
+def start_recording(*, track_index: int) -> dict:
+    """Arm a track and start recording. Call stop_transport when done."""
+    project = get_project()
+    track = project.tracks[track_index]
+    track.set_info_value("I_RECARM", 1)  # reapy's Track has no armed property
+    RPR.Main_OnCommand(1013, 0)  # Transport: Record
+    return {
+        "success": True,
+        "track_index": track_index,
+        "message": "Recording started. Call stop_transport to stop.",
+    }
 
-    @mcp.tool()
-    def start_recording(track_index: int) -> dict:
-        """Arm a track and start recording. Call stop_transport when done."""
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            track.armed = True
-            RPR.Main_OnCommand(1013, 0)  # Transport: Record
-            return {
-                "success": True,
-                "track_index": track_index,
-                "message": "Recording started. Call stop_transport to stop.",
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+def stop_transport() -> dict:
+    """Stop playback or recording."""
+    RPR.Main_OnCommand(1016, 0)  # Transport: Stop
+    return {"success": True, "message": "Transport stopped"}
 
-    @mcp.tool()
-    def stop_transport() -> dict:
-        """Stop playback or recording."""
-        try:
-            RPR.Main_OnCommand(1016, 0)  # Transport: Stop
-            return {"success": True, "message": "Transport stopped"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+def play_project() -> dict:
+    """Start project playback from the current cursor position."""
+    RPR.Main_OnCommand(1007, 0)  # Transport: Play
+    return {"success": True, "message": "Playback started"}
 
-    @mcp.tool()
-    def play_project() -> dict:
-        """Start project playback from the current cursor position."""
-        try:
-            RPR.Main_OnCommand(1007, 0)  # Transport: Play
-            return {"success": True, "message": "Playback started"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+def set_cursor_position(*, position: float) -> dict:
+    """Move the edit cursor to a position in seconds."""
+    project = get_project()
+    project.cursor_position = position
+    return {"success": True, "position": project.cursor_position}
 
-    @mcp.tool()
-    def set_cursor_position(position: float) -> dict:
-        """Move the edit cursor to a position in seconds."""
-        try:
-            project = get_project()
-            project.cursor_position = position
-            return {"success": True, "position": project.cursor_position}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+def edit_audio_item(
+    *,
+    track_index: int,
+    item_index: int,
+    start_trim: float = 0.0,
+    end_trim: float = 0.0,
+    fade_in: float = 0.0,
+    fade_out: float = 0.0,
+) -> dict:
+    """
+    Trim an audio item and/or add fades. All values in seconds.
+    start_trim: seconds to remove from the beginning.
+    end_trim: seconds to remove from the end.
+    fade_in/fade_out: fade length in seconds.
+    """
+    item = get_project().tracks[track_index].items[item_index]
+    if start_trim < 0 or end_trim < 0 or start_trim + end_trim >= item.length:
+        return {
+            "success": False,
+            "error": f"trims must be >= 0 and leave some of the {item.length:.3f} s item; "
+                     f"got start_trim={start_trim}, end_trim={end_trim}",
+        }
+    if start_trim > 0:
+        _trim_start(item, start_trim)
+    if end_trim > 0:
+        item.length -= end_trim
+    # Through D_FADE*LEN: reapy's Item has no fade properties.
+    if fade_in > 0:
+        item.set_info_value("D_FADEINLEN", fade_in)
+    if fade_out > 0:
+        item.set_info_value("D_FADEOUTLEN", fade_out)
+    return {
+        "success": True,
+        "track_index": track_index,
+        "item_index": item_index,
+        "position": item.position,
+        "length": item.length,
+    }
 
-    @mcp.tool()
-    def edit_audio_item(
-        track_index: int,
-        item_index: int,
-        start_trim: float = 0.0,
-        end_trim: float = 0.0,
-        fade_in: float = 0.0,
-        fade_out: float = 0.0,
-    ) -> dict:
-        """
-        Trim an audio item and/or add fades. All values in seconds.
-        start_trim: seconds to remove from the beginning.
-        end_trim: seconds to remove from the end.
-        fade_in/fade_out: fade length in seconds.
-        """
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            item = track.items[item_index]
 
-            if start_trim > 0:
-                item.position += start_trim
-                item.length -= start_trim
-                take = item.active_take
-                if take:
-                    take.start_offset += start_trim
+def _trim_start(item, seconds: float) -> None:
+    """Move the item's start later, keeping the audio where it was in time:
+    the take's source offset moves too, in source seconds (scaled by playrate).
+    reapy's Take.start_offset is read-only, so D_STARTOFFS is set directly."""
+    item.position += seconds
+    item.length -= seconds
+    if item.n_takes:  # reapy's active_take is truthy even when there is none
+        take = item.active_take
+        offset = take.get_info_value("D_STARTOFFS")
+        take.set_info_value("D_STARTOFFS", offset + seconds * take.get_info_value("D_PLAYRATE"))
 
-            if end_trim > 0:
-                item.length -= end_trim
 
-            if fade_in > 0:
-                item.fade_in_length = fade_in
+def adjust_pitch(*, track_index: int, item_index: int, semitones: float) -> dict:
+    """Adjust the pitch of an audio item by semitones (can be fractional)."""
+    project = get_project()
+    track = project.tracks[track_index]
+    item = track.items[item_index]
+    take = item.active_take
+    take.set_info_value("D_PITCH", semitones)  # reapy's Take has no pitch property
+    return {
+        "success": True,
+        "track_index": track_index,
+        "item_index": item_index,
+        "pitch_semitones": take.get_info_value("D_PITCH"),
+    }
 
-            if fade_out > 0:
-                item.fade_out_length = fade_out
+def adjust_playback_rate(*, track_index: int, item_index: int, rate: float) -> dict:
+    """Adjust playback rate of an audio item. 1.0 = normal speed, 0.5 = half speed."""
+    project = get_project()
+    track = project.tracks[track_index]
+    item = track.items[item_index]
+    take = item.active_take
+    take.set_info_value("D_PLAYRATE", rate)  # reapy's Take has no playback_rate property
+    return {
+        "success": True,
+        "track_index": track_index,
+        "item_index": item_index,
+        "playback_rate": take.get_info_value("D_PLAYRATE"),
+    }
 
-            return {
-                "success": True,
-                "track_index": track_index,
-                "item_index": item_index,
-                "position": item.position,
-                "length": item.length,
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
 
-    @mcp.tool()
-    def adjust_pitch(track_index: int, item_index: int, semitones: float) -> dict:
-        """Adjust the pitch of an audio item by semitones (can be fractional)."""
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            item = track.items[item_index]
-            take = item.active_take
-            take.pitch = semitones
-            return {
-                "success": True,
-                "track_index": track_index,
-                "item_index": item_index,
-                "pitch_semitones": take.pitch,
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
-    @mcp.tool()
-    def adjust_playback_rate(track_index: int, item_index: int, rate: float) -> dict:
-        """Adjust playback rate of an audio item. 1.0 = normal speed, 0.5 = half speed."""
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            item = track.items[item_index]
-            take = item.active_take
-            take.playback_rate = rate
-            return {
-                "success": True,
-                "track_index": track_index,
-                "item_index": item_index,
-                "playback_rate": take.playback_rate,
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+TOOLS = (
+    import_audio_file,
+    start_recording,
+    stop_transport,
+    play_project,
+    set_cursor_position,
+    edit_audio_item,
+    adjust_pitch,
+    adjust_playback_rate,
+)

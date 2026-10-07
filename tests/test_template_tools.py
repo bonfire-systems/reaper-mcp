@@ -117,3 +117,74 @@ def test_resolve_missing_suggests_close_match(template_dir):
 def test_resolve_empty_dir(tmp_path):
     with pytest.raises(FileNotFoundError, match="No track templates"):
         resolve_template("anything", tmp_path)
+
+
+def test_parse_track_names_quote_styles_and_unquoted_names(tmp_path):
+    # REAPER quotes a name with backticks when it contains both " and '; an
+    # unquoted name is kept whole even when it starts and ends alike.
+    p = tmp_path / "t.RTrackTemplate"
+    p.write_text(
+        "<TRACK\n  NAME `Say \"hi\" it's`\n>\n"
+        "<TRACK\n  NAME 808\n>\n"
+        "<TRACK\n  NAME \"Half'\n>\n"
+    )
+    assert parse_track_names(p) == ['Say "hi" it\'s', "808", "\"Half'"]
+
+
+def test_parse_track_names_track_without_name_and_non_track_chunks(tmp_path):
+    p = tmp_path / "t.RTrackTemplate"
+    p.write_text("<NOTES\n  NAME \"not a track\"\n>\n<TRACK\n  ISBUS 0 0\n>\n")
+    assert parse_track_names(p) == [""]
+
+
+def test_parse_track_names_replaces_undecodable_bytes(tmp_path):
+    p = tmp_path / "t.RTrackTemplate"
+    p.write_bytes(b'<TRACK\n  NAME "Caf\xe9 Vox"\n>\n')
+    assert parse_track_names(p) == ["Caf� Vox"]
+
+
+def test_resolve_ignores_surrounding_slashes_and_extension(template_dir):
+    (template_dir / "Synth X.RTrackTemplate").write_text(VOCAL)
+    assert resolve_template("/Synth X/", template_dir).name == "Synth X.RTrackTemplate"
+    assert resolve_template("Full Kit.RTrackTemplate", template_dir).name == (
+        "Full Kit.rtracktemplate"
+    )
+
+
+def test_resolve_ambiguous_name_lists_every_path(template_dir):
+    (template_dir / "Vocal Chain.RTrackTemplate").unlink()
+    (template_dir / "Vocals" / "Vocal Chain.RTrackTemplate").write_text(VOCAL)
+    with pytest.raises(ValueError) as error:
+        resolve_template("vocal chain", template_dir)
+    assert str(error.value) == (
+        "Template name 'vocal chain' is ambiguous; use one of the full paths: "
+        "Drums/Vocal Chain, Vocals/Vocal Chain"
+    )
+
+
+def test_resolve_missing_suggests_the_five_closest(tmp_path):
+    for i in range(1, 7):
+        (tmp_path / f"Pad {i}.RTrackTemplate").write_text(VOCAL)
+    with pytest.raises(FileNotFoundError) as error:
+        resolve_template("Pad", tmp_path)
+    assert str(error.value) == (
+        f"Track template 'Pad' not found in {tmp_path}. "
+        "Did you mean: Pad 2, Pad 3, Pad 4, Pad 5, Pad 6? "
+        "Use list_track_templates to see what is available."
+    )
+
+
+def test_resolve_missing_suggests_a_loose_match(tmp_path):
+    (tmp_path / "Strings Section.RTrackTemplate").write_text(VOCAL)
+    with pytest.raises(FileNotFoundError, match=r"Did you mean: Strings Section\? "):
+        resolve_template("String", tmp_path)
+
+
+def test_resolve_missing_without_a_close_match(tmp_path):
+    (tmp_path / "Strings Section.RTrackTemplate").write_text(VOCAL)
+    with pytest.raises(FileNotFoundError) as error:
+        resolve_template("Choir", tmp_path)
+    assert str(error.value) == (
+        f"Track template 'Choir' not found in {tmp_path}. "
+        "Use list_track_templates to see what is available."
+    )

@@ -16,14 +16,10 @@ position with ReorderSelectedTracks (default: end of the project).
 """
 
 import difflib
-import logging
 from pathlib import Path
+from typing import Any
 
-from reapy import reascript_api as RPR
-
-from reaper_mcp.connection import ensure_connected, get_project
-
-logger = logging.getLogger("reaper_mcp.template_tools")
+from reaper_mcp.reaper import RPR, ensure_connected, get_project
 
 TEMPLATE_SUFFIX = ".rtracktemplate"
 
@@ -48,19 +44,22 @@ def parse_track_names(path: Path) -> list[str]:
     chunks (<FXCHAIN, <ITEM, ...) are skipped with a depth counter so that an
     item's or plugin's NAME line is never mistaken for the track name.
     """
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return _top_level_track_names(raw.strip() for raw in f)
+
+
+def _top_level_track_names(lines) -> list[str]:
     names: list[str] = []
     depth = 0
-    with open(path, encoding="utf-8", errors="replace") as f:
-        for raw in f:
-            line = raw.strip()
-            if line.startswith("<"):
-                if depth == 0 and line.startswith("<TRACK"):
-                    names.append("")
-                depth += 1
-            elif line == ">":
-                depth -= 1
-            elif depth == 1 and names and line.startswith("NAME"):
-                names[-1] = _unquote(line[4:])
+    for line in lines:
+        if line.startswith("<"):
+            if depth == 0 and line.startswith("<TRACK"):
+                names.append("")
+            depth += 1
+        elif line == ">":
+            depth -= 1
+        elif depth == 1 and names and line.startswith("NAME"):
+            names[-1] = _unquote(line[4:])
     return names
 
 
@@ -80,7 +79,7 @@ def find_templates(template_dir: Path) -> list[dict]:
         if any(part.startswith(".") for part in path.relative_to(template_dir).parts):
             continue
         rel = path.relative_to(template_dir).with_suffix("").as_posix()
-        entry = {
+        entry: dict[str, Any] = {
             "name": path.stem,
             "path": rel,
             "file": str(path),
@@ -153,111 +152,116 @@ def _all_track_guids() -> list[str]:
     return [RPR.GetTrackGUID(RPR.GetTrack(0, i)) for i in range(count)]
 
 
-def register_tools(mcp):
+def list_track_templates() -> dict:
+    """
+    List the track templates (.RTrackTemplate files) in REAPER's TrackTemplates folder,
+    including subfolders. Each entry has 'name' (file name without extension), 'path'
+    (relative to the TrackTemplates folder, e.g. "Vocals/Lead Vox"), the absolute 'file',
+    and the names of the tracks the template contains.
+    Pass either 'name' or 'path' to insert_track_template.
+    """
+    template_dir = get_template_dir()
+    templates = find_templates(template_dir)
+    return {
+        "success": True,
+        "template_directory": str(template_dir),
+        "count": len(templates),
+        "templates": templates,
+    }
 
-    @mcp.tool()
-    def list_track_templates() -> dict:
-        """
-        List the track templates (.RTrackTemplate files) in REAPER's TrackTemplates folder,
-        including subfolders. Each entry has 'name' (file name without extension), 'path'
-        (relative to the TrackTemplates folder, e.g. "Vocals/Lead Vox"), the absolute 'file',
-        and the names of the tracks the template contains.
-        Pass either 'name' or 'path' to insert_track_template.
-        """
-        try:
-            template_dir = get_template_dir()
-            templates = find_templates(template_dir)
-            return {
-                "success": True,
-                "template_directory": str(template_dir),
-                "count": len(templates),
-                "templates": templates,
-            }
-        except Exception as e:
-            logger.error(f"list_track_templates failed: {e}")
-            return {"success": False, "error": str(e)}
+def insert_track_template(*, template: str, position: int | None = None) -> dict:
+    """
+    Insert a saved track template into the current project, exactly like REAPER's own
+    "Insert track from template": FX with their saved state, routing, folder structure,
+    envelopes and items are all preserved. Templates can contain several tracks.
+    template: a name or path from list_track_templates ("Vocal Chain", "Vocals/Lead Vox"),
+              or an absolute path to a .RTrackTemplate file.
+    position: 0-based track index the template's first track should occupy. Existing
+              tracks at that index and below are shifted down. Omit to append at the end.
+    The inserted tracks are left selected, matching REAPER's behaviour.
+    """
+    template_dir = get_template_dir()
+    path = resolve_template(template, template_dir)
 
-    @mcp.tool()
-    def insert_track_template(template: str, position: int | None = None) -> dict:
-        """
-        Insert a saved track template into the current project, exactly like REAPER's own
-        "Insert track from template": FX with their saved state, routing, folder structure,
-        envelopes and items are all preserved. Templates can contain several tracks.
-        template: a name or path from list_track_templates ("Vocal Chain", "Vocals/Lead Vox"),
-                  or an absolute path to a .RTrackTemplate file.
-        position: 0-based track index the template's first track should occupy. Existing
-                  tracks at that index and below are shifted down. Omit to append at the end.
-        The inserted tracks are left selected, matching REAPER's behaviour.
-        """
-        try:
-            template_dir = get_template_dir()
-            path = resolve_template(template, template_dir)
+    before = _all_track_guids()
+    n_before = len(before)
+    if position is None:
+        position = n_before
+    if not 0 <= position <= n_before:
+        return {
+            "success": False,
+            "error": f"position must be between 0 and {n_before} (the project has "
+                     f"{n_before} tracks); got {position}",
+        }
 
-            before = _all_track_guids()
-            n_before = len(before)
-            if position is None:
-                position = n_before
-            if not 0 <= position <= n_before:
-                return {
-                    "success": False,
-                    "error": f"position must be between 0 and {n_before} (the project has "
-                             f"{n_before} tracks); got {position}",
-                }
+    inserted_guids = _open_and_place(path, before, position)
+    if not inserted_guids:
+        return {
+            "success": False,
+            "error": f"REAPER did not insert any tracks from {path}. "
+                     "Check that the file is a valid track template.",
+        }
+    tracks = _tracks_with_guids(inserted_guids)
+    return {
+        "success": True,
+        "template": path.stem,
+        "file": str(path),
+        "inserted_count": len(tracks),
+        "first_track_index": tracks[0]["index"],  # inserted_guids is never empty here
+        "tracks": tracks,
+    }
 
-            RPR.Undo_BeginBlock2(0)
-            RPR.PreventUIRefresh(1)
-            try:
-                RPR.Main_openProject(str(path))
 
-                after = _all_track_guids()
-                known = set(before)
-                inserted = [i for i, guid in enumerate(after) if guid not in known]
-                if not inserted:
-                    return {
-                        "success": False,
-                        "error": f"REAPER did not insert any tracks from {path}. "
-                                 "Check that the file is a valid track template.",
-                    }
-                n_inserted = len(inserted)
-                first = inserted[0]
-                if inserted != list(range(first, first + n_inserted)):
-                    logger.warning(f"inserted tracks are not contiguous: {inserted}")
+def _open_and_place(path: Path, before: list[str], position: int) -> set[str]:
+    """Insert the template as one undo step and move its tracks to position.
 
-                # Select exactly the inserted tracks so ReorderSelectedTracks moves
-                # them and nothing else, and so the result matches REAPER's native
-                # behaviour of leaving the new tracks selected.
-                RPR.SetOnlyTrackSelected(RPR.GetTrack(0, first))
-                for i in inserted[1:]:
-                    RPR.SetTrackSelected(RPR.GetTrack(0, i), True)
+    Returns the GUIDs of the inserted tracks (empty when REAPER inserted none).
+    """
+    RPR.Undo_BeginBlock2(0)
+    RPR.PreventUIRefresh(1)
+    try:
+        RPR.Main_openProject(str(path))
+        after = _all_track_guids()
+        known = set(before)
+        inserted = [i for i, guid in enumerate(after) if guid not in known]
+        if inserted:
+            _move_inserted(inserted, position)
+        return {after[i] for i in inserted}
+    finally:
+        RPR.PreventUIRefresh(-1)
+        RPR.Undo_EndBlock2(0, f"Insert track template: {path.stem}", -1)
+        RPR.TrackList_AdjustWindows(False)
+        RPR.UpdateArrange()
 
-                if position != first:
-                    # Indices of pre-existing tracks at or after the landing spot
-                    # have shifted by n_inserted; translate the requested
-                    # position into the current numbering.
-                    before_idx = position if position < first else position + n_inserted
-                    RPR.ReorderSelectedTracks(before_idx, 0)
-            finally:
-                RPR.PreventUIRefresh(-1)
-                RPR.Undo_EndBlock2(0, f"Insert track template: {path.stem}", -1)
-                RPR.TrackList_AdjustWindows(False)
-                RPR.UpdateArrange()
 
-            inserted_guids = {after[i] for i in inserted}
-            final = _all_track_guids()
-            project = get_project()
-            tracks = [
-                {"index": i, "name": project.tracks[i].name}
-                for i, guid in enumerate(final)
-                if guid in inserted_guids
-            ]
-            return {
-                "success": True,
-                "template": path.stem,
-                "file": str(path),
-                "inserted_count": len(tracks),
-                "first_track_index": tracks[0]["index"] if tracks else None,
-                "tracks": tracks,
-            }
-        except Exception as e:
-            logger.error(f"insert_track_template failed: {e}")
-            return {"success": False, "error": str(e)}
+def _move_inserted(inserted: list[int], position: int) -> None:
+    n_inserted = len(inserted)
+    first = inserted[0]
+
+    # Select exactly the inserted tracks so ReorderSelectedTracks moves
+    # them and nothing else, and so the result matches REAPER's native
+    # behaviour of leaving the new tracks selected.
+    RPR.SetOnlyTrackSelected(RPR.GetTrack(0, first))
+    for i in inserted[1:]:
+        RPR.SetTrackSelected(RPR.GetTrack(0, i), True)
+
+    if position != first:
+        # Indices of pre-existing tracks at or after the landing spot
+        # have shifted by n_inserted; translate the requested
+        # position into the current numbering.
+        before_idx = position if position < first else position + n_inserted
+        RPR.ReorderSelectedTracks(before_idx, 0)
+
+
+def _tracks_with_guids(guids: set[str]) -> list[dict]:
+    project = get_project()
+    return [
+        {"index": i, "name": project.tracks[i].name}
+        for i, guid in enumerate(_all_track_guids())
+        if guid in guids
+    ]
+
+TOOLS = (
+    list_track_templates,
+    insert_track_template,
+)
