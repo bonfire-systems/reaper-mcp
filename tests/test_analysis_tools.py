@@ -4,7 +4,6 @@ The fake renders 4 s of 440 Hz at 0.5 (left) and 660 Hz at 0.25 (right), so ever
 expected number below is derived from that signal rather than from the tool's code.
 """
 
-import math
 
 import numpy as np
 import pytest
@@ -185,20 +184,9 @@ def test_analyze_stereo_field(reaper, call):
     assert_rendered_and_deleted(reaper)
 
 
-def test_analyze_stereo_field_silent_bug(reaper, call):
+def test_analyze_stereo_field_silent(reaper, call):
     reaper.silent = True
-    result = call("analyze_stereo_field")
-    # BUG: correlation of silence is NaN, sent as the non-JSON token NaN that strict JSON clients reject.
-    assert math.isnan(result.pop("lr_correlation"))
-    # The silence floor here is -200 dB, unlike the -120 dB the other analysis tools report.
-    assert result == {
-        "success": True,
-        "stereo_width_ratio": 0.0,
-        "mid_rms_db": -200.0,
-        "side_rms_db": -200.0,
-        "mono_compatible": False,
-        "notes": NOTES,
-    }
+    assert call("analyze_stereo_field") == {"success": False, "error": "Project appears to be silent"}
     assert_rendered_and_deleted(reaper)
 
 

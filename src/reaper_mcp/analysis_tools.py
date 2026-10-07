@@ -151,6 +151,9 @@ def analyze_stereo_field() -> dict:
         return {"success": False, "error": "Project rendered as mono; cannot analyze stereo field"}
 
     L, R = data[:, 0], data[:, 1]
+    if not (L.any() and R.any()):
+        # A silent channel has no correlation (NaN, which is not JSON).
+        return {"success": False, "error": "Project appears to be silent"}
     mid = (L + R) / 2
     side = (L - R) / 2
     mid_rms = float(np.sqrt(np.mean(mid ** 2)))

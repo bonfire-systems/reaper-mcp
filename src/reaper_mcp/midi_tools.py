@@ -38,6 +38,7 @@ NOTE_TO_NUMBER = {
     "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
     "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
     "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11,
+    "Cb": 11, "Fb": 4, "E#": 5, "B#": 0,
 }
 
 
@@ -177,6 +178,8 @@ def create_drum_pattern(
     Example 4/4 rock beat (16 steps): "k...h...s...h..."
     All drum notes are placed on MIDI channel 9 (GM standard).
     """
+    if not pattern:
+        return {"success": False, "error": "pattern is empty; give one character per step"}
     project = get_project()
     track = project.tracks[track_index]
     seconds_per_beat = 60.0 / project.bpm

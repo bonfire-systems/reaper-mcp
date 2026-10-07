@@ -49,10 +49,11 @@ def test_parse_chord_unknown_root_falls_back_to_c():
     assert _parse_chord("") == ([0, 4, 7], 0)
 
 
-def test_parse_chord_enharmonic_roots_bug():
-    # BUG: Cb/Fb/E#/B# are not in NOTE_TO_NUMBER, so those chords play rooted on C.
-    assert _parse_chord("Cb") == ([0, 4, 7], 0)
-    assert _parse_chord("E#m") == ([0, 3, 7], 0)
+def test_parse_chord_enharmonic_roots():
+    assert _parse_chord("Cb") == ([0, 4, 7], 11)
+    assert _parse_chord("Fb") == ([0, 4, 7], 4)
+    assert _parse_chord("E#m") == ([0, 3, 7], 5)
+    assert _parse_chord("B#") == ([0, 4, 7], 0)
 
 
 # create_midi_item
@@ -233,13 +234,11 @@ def test_create_drum_pattern_maps_every_drum(reaper, call):
     assert {(n.velocity, n.channel) for n in notes} == {(100, 9)}
 
 
-def test_create_drum_pattern_empty_pattern_bug(reaper, call):
+def test_create_drum_pattern_empty_pattern_creates_nothing(reaper, call):
     track = reaper.add_track("Drums")
     result = call("create_drum_pattern", track_index=0, pattern="", start_position=0.0)
-    assert result == {"success": False, "error": "float division by zero"}
-    # BUG: the step division fails after the item is created, leaving an empty MIDI item in REAPER.
-    assert len(track.items) == 1
-    assert track.items[0].notes == []
+    assert result == {"success": False, "error": "pattern is empty; give one character per step"}
+    assert track.items == []
 
 
 def test_create_drum_pattern_bad_track(reaper, call):
