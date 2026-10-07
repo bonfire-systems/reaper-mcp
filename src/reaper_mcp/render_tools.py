@@ -25,6 +25,7 @@ BIT_DEPTH_CODES = {
 
 def _set_render_settings(
     output_path: str,
+    *,
     format: str,
     sample_rate: int,
     bit_depth: int,
@@ -49,7 +50,7 @@ def render_to_temp_file(sample_rate: int = 48000) -> str:
     """
     import tempfile
     tmp = tempfile.mktemp(suffix=".wav")
-    _set_render_settings(tmp, "wav", sample_rate, 24, 2, bounds=0)
+    _set_render_settings(tmp, format="wav", sample_rate=sample_rate, bit_depth=24, channels=2, bounds=0)
     RPR.Main_OnCommand(41824, 0)
     return tmp
 
@@ -72,7 +73,8 @@ def render_project(
     """
     output_path = str(Path(output_path).expanduser().resolve())
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    _set_render_settings(output_path, format, sample_rate, bit_depth, channels, bounds=0)
+    _set_render_settings(output_path, format=format, sample_rate=sample_rate,
+                         bit_depth=bit_depth, channels=channels, bounds=0)
     RPR.Main_OnCommand(41824, 0)  # File: Render project to disk (no dialog)
     if not os.path.exists(output_path):
         return {"success": False, "error": "Render command completed but output file not found"}
@@ -101,7 +103,8 @@ def render_time_selection(
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     project = get_project()
     project.time_selection = (start, end)
-    _set_render_settings(output_path, format, sample_rate, bit_depth, channels, bounds=1)
+    _set_render_settings(output_path, format=format, sample_rate=sample_rate,
+                         bit_depth=bit_depth, channels=channels, bounds=1)
     RPR.Main_OnCommand(41824, 0)
     if not os.path.exists(output_path):
         return {"success": False, "error": "Render completed but output file not found"}
@@ -161,7 +164,8 @@ def _render_stem(project, idx: int, output_directory: str, *, format: str,
     # Sanitize filename
     safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in track_name)
     stem_path = os.path.join(output_directory, f"{safe_name}.{format}")
-    _set_render_settings(stem_path, format, sample_rate, bit_depth, 2, bounds=0)
+    _set_render_settings(stem_path, format=format, sample_rate=sample_rate,
+                         bit_depth=bit_depth, channels=2, bounds=0)
     RPR.Main_OnCommand(41824, 0)
     return {
         "track_index": idx,

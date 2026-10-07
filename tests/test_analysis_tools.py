@@ -61,23 +61,23 @@ def mono_peak():
 
 def test_band_rms_db_empty_band():
     d = np.ones((4, 3))
-    assert _band_rms_db(d, np.array([10.0, 20.0, 30.0, 40.0]), 50, 60) == -120.0
+    assert _band_rms_db(d, np.array([10.0, 20.0, 30.0, 40.0]), (50, 60)) == -120.0
 
 
 def test_band_rms_db_uses_inclusive_edges():
     freqs = np.array([10.0, 20.0, 30.0, 40.0])
     d = np.array([[1.0, 1.0], [10.0, 10.0], [10.0, 10.0], [100.0, 100.0]])
-    assert _band_rms_db(d, freqs, 20, 30) == pytest.approx(20.0)
-    assert _band_rms_db(d, freqs, 10, 40) == pytest.approx(10 * np.log10((1 + 100 + 100 + 10_000) / 4))
+    assert _band_rms_db(d, freqs, (20, 30)) == pytest.approx(20.0)
+    assert _band_rms_db(d, freqs, (10, 40)) == pytest.approx(10 * np.log10((1 + 100 + 100 + 10_000) / 4))
 
 
 def test_band_rms_db_mean_power_over_bins_and_frames():
     d = np.array([[3.0, 0.0], [4.0, 0.0]])
-    assert _band_rms_db(d, np.array([1.0, 2.0]), 0, 5) == pytest.approx(10 * np.log10(25 / 4))
+    assert _band_rms_db(d, np.array([1.0, 2.0]), (0, 5)) == pytest.approx(10 * np.log10(25 / 4))
 
 
 def test_band_rms_db_silence_floor():
-    assert _band_rms_db(np.zeros((2, 2)), np.array([1.0, 2.0]), 0, 5) == pytest.approx(-120.0)
+    assert _band_rms_db(np.zeros((2, 2)), np.array([1.0, 2.0]), (0, 5)) == pytest.approx(-120.0)
 
 
 # analyze_frequency_spectrum

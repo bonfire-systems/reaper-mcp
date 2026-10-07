@@ -21,7 +21,8 @@ def _settings(reaper) -> dict:
 
 
 def test_set_render_settings_writes_project_info(reaper):
-    _set_render_settings("/x/mix.flac", "FLAC", 44100, 16, 1, bounds=1)
+    _set_render_settings("/x/mix.flac", format="FLAC", sample_rate=44100, bit_depth=16,
+                         channels=1, bounds=1)
     assert _settings(reaper) == {
         "RENDER_FILE": "/x/mix.flac",
         "RENDER_FORMAT": 5,
@@ -44,7 +45,8 @@ def test_set_render_settings_writes_project_info(reaper):
 )
 def test_set_render_settings_codes(reaper, case):
     fmt, bit_depth, codes = case
-    _set_render_settings("/x/out", fmt, 48000, bit_depth, 2, bounds=0)
+    _set_render_settings("/x/out", format=fmt, sample_rate=48000, bit_depth=bit_depth,
+                         channels=2, bounds=0)
     assert (reaper.project_info["RENDER_FORMAT"], reaper.project_info["RENDER_FORMAT2"]) == codes
     assert reaper.commands == []
 

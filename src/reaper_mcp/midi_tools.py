@@ -62,7 +62,6 @@ def create_midi_item(*, track_index: int, start_position: float, length: float) 
     project = get_project()
     track = project.tracks[track_index]
     item = track.add_midi_item(start_position, start_position + length)
-    take = item.active_take
     return {
         "success": True,
         "item_id": item.id,

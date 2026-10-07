@@ -34,10 +34,10 @@ class ReaScriptAPI(Protocol):
     def GetResourcePath(self) -> str: ...
 
     # Project settings
-    def GetSetProjectInfo(
+    def GetSetProjectInfo(  # noqa: PLR0917 -- REAPER's own signature
         self, project: int, desc: str, value: float, is_set: bool, /
     ) -> float: ...
-    def GetSetProjectInfo_String(
+    def GetSetProjectInfo_String(  # noqa: PLR0917 -- REAPER's own signature
         self, project: int, desc: str, value: str, is_set: bool, /
     ) -> object: ...
 
@@ -60,16 +60,16 @@ class ReaScriptAPI(Protocol):
     def CreateTrackSend(self, source: Pointer, dest: Pointer, /) -> int: ...
     def RemoveTrackSend(self, track: Pointer, category: int, send_index: int, /) -> bool: ...
     def GetTrackNumSends(self, track: Pointer, category: int, /) -> int: ...
-    def GetTrackSendInfo_Value(
+    def GetTrackSendInfo_Value(  # noqa: PLR0917 -- REAPER's own signature
         self, track: Pointer, category: int, send_index: int, param: str, /
     ) -> float: ...
-    def SetTrackSendInfo_Value(
+    def SetTrackSendInfo_Value(  # noqa: PLR0917 -- REAPER's own signature
         self, track: Pointer, category: int, send_index: int, param: str, value: float, /
     ) -> bool: ...
 
     # Envelopes
     def GetTrackEnvelopeByName(self, track: Pointer, name: str, /) -> Pointer: ...
-    def InsertEnvelopePoint(
+    def InsertEnvelopePoint(  # noqa: PLR0917 -- REAPER's own signature
         self,
         envelope: Pointer,
         time: float,

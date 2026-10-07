@@ -7,7 +7,8 @@ import numpy as np
 logger = logging.getLogger("reaper_mcp.analysis_tools")
 
 
-def _band_rms_db(D: np.ndarray, freqs: np.ndarray, lo: float, hi: float) -> float:
+def _band_rms_db(D: np.ndarray, freqs: np.ndarray, band: tuple[float, float]) -> float:
+    lo, hi = band
     mask = (freqs >= lo) & (freqs <= hi)
     if not mask.any():
         return -120.0
@@ -24,7 +25,6 @@ def analyze_frequency_spectrum() -> dict:
     mids (500–2kHz), high_mids (2–4kHz), presence (4–8kHz), brilliance (8–20kHz).
     """
     import librosa
-    import soundfile as sf
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -50,7 +50,7 @@ def analyze_frequency_spectrum() -> dict:
     results = {
         name: {
             "range_hz": f"{lo}–{hi}",
-            "level_db": round(_band_rms_db(D, freqs, lo, hi), 1),
+            "level_db": round(_band_rms_db(D, freqs, (lo, hi)), 1),
         }
         for name, (lo, hi) in bands.items()
     }
