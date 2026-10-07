@@ -45,11 +45,16 @@ def test_tool_schemas_match_snapshot():
 def test_optional_parameters_accept_null():
     """A parameter defaulting to None must admit null in its schema, or the SDK
     rejects an explicit null before the tool runs."""
-    offenders = []
-    for name, tool in current_schemas().items():
-        for param, schema in tool["input_schema"].get("properties", {}).items():
-            if "default" in schema and schema["default"] is None:
-                types = [schema.get("type")] + [s.get("type") for s in schema.get("anyOf", [])]
-                if "null" not in types:
-                    offenders.append(f"{name}.{param}")
+    params = (
+        (f"{name}.{param}", schema)
+        for name, tool in current_schemas().items()
+        for param, schema in tool["input_schema"].get("properties", {}).items()
+    )
+    offenders = [
+        where
+        for where, schema in params
+        if "default" in schema
+        and schema["default"] is None
+        and "null" not in [schema.get("type")] + [s.get("type") for s in schema.get("anyOf", [])]
+    ]
     assert offenders == []
