@@ -23,7 +23,10 @@ from pathlib import Path
 
 from reaper_mcp.reaper import RPR, get_project
 
-RENDER_PROJECT = 41824  # File: Render project, using the most recent render settings
+# "File: Render project, using the most recent render settings, auto-close
+# render dialog". 41824 is the same without auto-close, which leaves REAPER's
+# results window open after every render (spotted in PR #7).
+RENDER_PROJECT = 42230
 ENTIRE_PROJECT = 1
 TIME_SELECTION = 2
 

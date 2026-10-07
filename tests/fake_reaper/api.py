@@ -9,7 +9,7 @@ from tests.fake_reaper.objects import PRESETS, ItemState, Send, TrackState
 from tests.fake_reaper.project import FakeProject
 from tests.fake_reaper.render import render
 
-RENDER_PROJECT = 41824
+RENDER_PROJECT = 42230
 STRING_PROJECT_INFO = {"RENDER_FILE", "RENDER_PATTERN", "RENDER_FORMAT"}
 NUMERIC_PROJECT_INFO = {
     "RENDER_SRATE", "RENDER_CHANNELS", "RENDER_BOUNDSFLAG", "RENDER_ADDTOPROJ",
