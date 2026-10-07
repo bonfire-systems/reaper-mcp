@@ -99,14 +99,6 @@ Inserts saved `.RTrackTemplate` files from REAPER's TrackTemplates folder (subfo
 ### Analysis
 `analyze_loudness` `analyze_dynamics` `analyze_frequency_spectrum` `analyze_stereo_field` `analyze_transients` `detect_clipping`
 
-## Configuration
-
-The server stores its configuration in your platform's config directory:
-
-- macOS: `~/Library/Application Support/reaper-mcp/config.json`
-- Linux: `~/.config/reaper-mcp/config.json`
-- Windows: `%APPDATA%\reaper-mcp\config.json`
-
 ## License
 
 MIT
