@@ -20,19 +20,24 @@ TRANSPORT = {1007: "playing", 1013: "recording", 1016: "stopped"}
 class FakeReaper:
     tmp: Path
     bpm: float = 120.0
+    # bpm is in quarter notes, as REAPER displays it. The project-settings time
+    # signature follows the last marker at 0, even once that marker is deleted.
     time_signature: tuple[int, int] = (4, 4)
+    # [position, bpm, numerator, denominator] per tempo/time signature marker.
+    tempo_markers: list[list[float]] = field(default_factory=list)
     cursor: float = 0.0
     time_selection: tuple[float, float] = (0.0, 0.0)
     project_name: str = "Test Project"
     project_path: str = ""
     transport: str = "stopped"
     tracks: list[TrackState] = field(default_factory=list)
-    markers: list[float] = field(default_factory=list)
-    regions: list[tuple[float, float]] = field(default_factory=list)
+    markers: list[tuple[float, str]] = field(default_factory=list)
+    regions: list[tuple[float, float, str]] = field(default_factory=list)
     project_info: dict[str, float | str] = field(default_factory=dict)
     envelopes: dict[tuple[str, str], list[tuple[float, float]]] = field(default_factory=dict)
     opened: list[str] = field(default_factory=list)
     saves: list[bool] = field(default_factory=list)
+    saved_paths: list[str] = field(default_factory=list)
     commands: list[int] = field(default_factory=list)
     renders: list[Path] = field(default_factory=list)
     # Names of the soloed tracks at each render, in render order.
@@ -58,6 +63,12 @@ class FakeReaper:
                 return state
         raise ValueError(f"no track {pointer}")
 
+    def time_signature_at_start(self) -> tuple[int, int]:
+        for position, _, numerator, denominator in self.tempo_markers:
+            if position == 0.0:
+                return int(numerator), int(denominator)
+        return self.time_signature
+
     def show_envelope(self, track: TrackState, name: str) -> None:
         self.envelopes[(track.pointer, name)] = []
 
@@ -68,7 +79,8 @@ class FakeReaper:
         if command == RENDER_PROJECT:
             self._render()
         elif command == NEW_PROJECT:
-            self.tracks.clear()
+            for contents in (self.tracks, self.markers, self.regions, self.tempo_markers):
+                contents.clear()
         elif command in TRANSPORT:
             self.transport = TRANSPORT[command]
 
@@ -78,6 +90,10 @@ class FakeReaper:
             for line in Path(path).read_text().splitlines():
                 if line.startswith("<TRACK"):
                     self.add_track(f"from {Path(path).stem}")
+
+    def Main_SaveProjectEx(self, project: int, path: str, options: int) -> None:
+        Path(path).write_text("<REAPER_PROJECT 0.1\n>\n")
+        self.saved_paths.append(path)
 
     def Undo_BeginBlock2(self, project: int) -> None:
         pass
@@ -120,6 +136,61 @@ class FakeReaper:
         sf.write(path, np.stack([left, right], axis=1), rate, format="WAV")
         self.renders.append(path)
         self.render_solos.append([t.name for t in self.tracks if t.info["I_SOLO"]])
+
+    # Tempo and time signature (return shapes as REAPER 7.82 gives them)
+
+    def Master_GetTempo(self) -> float:
+        return self.bpm
+
+    def CountTempoTimeSigMarkers(self, project: int) -> int:
+        return len(self.tempo_markers)
+
+    def GetTempoTimeSigMarker(self, project, index, *_out) -> list:
+        position, bpm, numerator, denominator = self.tempo_markers[index]
+        return [True, project, index, position, 0, 0.0, bpm, numerator, denominator, False]
+
+    def SetTempoTimeSigMarker(self, project, index, position, _measure, _beat, bpm, *rest) -> bool:  # noqa: PLR0917 -- mirrors the ReaScript signature
+        numerator, denominator, _linear = rest
+        marker = [position, bpm, numerator, denominator]
+        if position == 0.0:
+            self.time_signature = (int(numerator), int(denominator))
+        if index == -1:
+            self.tempo_markers.append(marker)
+            self.tempo_markers.sort(key=lambda m: m[0])
+        else:
+            self.tempo_markers[index] = marker
+        return True
+
+    def DeleteTempoTimeSigMarker(self, project: int, index: int) -> bool:
+        del self.tempo_markers[index]
+        return True
+
+    def TimeMap_GetTimeSigAtTime(self, project, time, *_out) -> list:
+        numerator, denominator = self.time_signature_at_start()
+        return [project, time, numerator, denominator, self.bpm]
+
+    # Markers and regions, in position order as REAPER enumerates them
+
+    def _markers_and_regions(self) -> list[tuple[bool, float, float, str]]:
+        entries = [(False, p, 0.0, n) for p, n in self.markers]
+        entries += [(True, s, e, n) for s, e, n in self.regions]
+        return sorted(entries, key=lambda entry: entry[1])
+
+    def CountProjectMarkers(self, project: int, _markers: int, _regions: int) -> list:
+        return [len(self.markers) + len(self.regions), project, len(self.markers), len(self.regions)]
+
+    def GetRegionOrMarker(self, project: int, index: int, guid: str) -> str:
+        return f"(ProjectMarker*){index}"
+
+    def _marker(self, handle: str) -> tuple[bool, float, float, str]:
+        return self._markers_and_regions()[int(handle.removeprefix("(ProjectMarker*)"))]
+
+    def GetRegionOrMarkerInfo_Value(self, project: int, handle: str, param: str) -> float:
+        is_region, start, end, _ = self._marker(handle)
+        return {"B_ISREGION": float(is_region), "D_STARTPOS": start, "D_ENDPOS": end}[param]
+
+    def GetSetRegionOrMarkerInfo_String(self, project, handle, param, value, is_set) -> list:  # noqa: PLR0917 -- mirrors the ReaScript signature
+        return [True, project, handle, param, self._marker(handle)[3], is_set]
 
     # Tracks
 

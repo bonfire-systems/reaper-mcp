@@ -6,6 +6,7 @@ whether to save a dirty project in a modal dialog, which would hang the run.
 
 import pytest
 import reapy
+from reapy import reascript_api as RPR
 
 RESET_BPM = 120.0
 
@@ -31,6 +32,12 @@ def reset(project: reapy.Project) -> None:
     master = project.master_track
     for fx in reversed(list(master.fxs)):
         fx.delete()
+    for i in reversed(range(RPR.CountTempoTimeSigMarkers(0))):
+        RPR.DeleteTempoTimeSigMarker(0, i)
+    # Deleting the last marker leaves its time signature as the project's, so
+    # write a 4/4 one and delete that.
+    RPR.SetTempoTimeSigMarker(0, -1, 0.0, -1, -1, RESET_BPM, 4, 4, False)
+    RPR.DeleteTempoTimeSigMarker(0, 0)
     project.bpm = RESET_BPM
 
 

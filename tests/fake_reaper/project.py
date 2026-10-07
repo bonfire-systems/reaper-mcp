@@ -19,7 +19,9 @@ class FakeProject:
 
     @property
     def bpm(self) -> float:
-        return self._reaper.bpm
+        """reapy reads the tempo in beats of the denominator (240 in 6/8 at a
+        quarter-note 120), though its setter takes quarter notes."""
+        return self._reaper.bpm * self._reaper.time_signature_at_start()[1] / 4
 
     @bpm.setter
     def bpm(self, value: float) -> None:
@@ -28,7 +30,7 @@ class FakeProject:
     @property
     def time_signature(self) -> tuple[float, float]:
         """reapy returns (bpm, bpi): the tempo and the numerator, not num/denom."""
-        return self._reaper.bpm, float(self._reaper.time_signature[0])
+        return self.bpm, float(self._reaper.time_signature_at_start()[0])
 
     @property
     def cursor_position(self) -> float:
@@ -76,7 +78,7 @@ class FakeProject:
 
     @property
     def markers(self) -> list[FakeMarker]:
-        return [FakeMarker(p) for p in self._reaper.markers]
+        return [FakeMarker(p) for p, _ in self._reaper.markers]
 
     @property
     def n_regions(self) -> int:
@@ -84,14 +86,14 @@ class FakeProject:
 
     @property
     def regions(self) -> list[FakeRegion]:
-        return [FakeRegion(s, e) for s, e in self._reaper.regions]
+        return [FakeRegion(s, e) for s, e, _ in self._reaper.regions]
 
     def add_marker(self, position, name="", color=0) -> FakeMarker:
-        self._reaper.markers.append(position)
+        self._reaper.markers.append((position, name))
         return FakeMarker(position)
 
     def add_region(self, start, end, name="", color=0) -> FakeRegion:  # noqa: PLR0917 -- mirrors reapy.Project.add_region
-        self._reaper.regions.append((start, end))
+        self._reaper.regions.append((start, end, name))
         return FakeRegion(start, end)
 
     def add_track(self, index=0, name="") -> FakeTrack:

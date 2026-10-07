@@ -8,6 +8,7 @@ the same thing in REAPER.
 """
 
 import pytest
+from reapy import reascript_api as RPR
 from reapy.errors import DistError
 
 from tests.fake_reaper import install
@@ -26,6 +27,15 @@ def test_time_signature_is_bpm_and_numerator(project):
     bpm, numerator = project.time_signature
     assert bpm == pytest.approx(95.0)
     assert numerator == pytest.approx(4.0)
+
+
+def test_bpm_reads_in_beats_of_the_denominator(project):
+    """reapy's getter doubles the quarter-note tempo in x/8; its setter does not."""
+    RPR.SetTempoTimeSigMarker(0, -1, 0.0, -1, -1, 120.0, 6, 8, False)
+    assert project.bpm == pytest.approx(240.0)
+    assert RPR.Master_GetTempo() == pytest.approx(120.0)
+    project.bpm = 90.0
+    assert RPR.Master_GetTempo() == pytest.approx(90.0)
 
 
 def test_time_signature_is_read_only(project):
