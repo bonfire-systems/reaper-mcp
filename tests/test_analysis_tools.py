@@ -79,6 +79,8 @@ def test_analyze_frequency_spectrum(reaper, call):
     # The bands without a tone hold only window leakage and quantization noise,
     # which depends on the render's bit depth, so only their ceiling is pinned.
     assert max(others) < levels["mids"] - 20
+    # Levels are reported to 0.1 dB.
+    assert levels == {name: round(level, 1) for name, level in levels.items()}
     assert_rendered_and_deleted(reaper)
 
 
@@ -107,6 +109,24 @@ def test_detect_clipping(reaper, call):
         "peak_linear": LEFT,
     }
     assert result["peak_db"] == -6.02
+    assert_rendered_and_deleted(reaper)
+
+
+def test_detect_clipping_short_render_misses_the_crest(reaper, call):
+    # 1 ms is 48 samples: none lands on the 440 Hz crest, so the peak sample sits
+    # just under 0.5, and the reply keeps four decimals of it.
+    reaper.length = 0.001
+    n = np.arange(48) / 48000
+    peak = float(np.max(LEFT * np.sin(2 * np.pi * 440 * n)))
+    result = call("detect_clipping")
+    assert result["peak_linear"] == pytest.approx(peak, abs=0.00005)
+    assert result == {
+        "success": True,
+        "clipping_detected": False,
+        "clipped_samples": 0,
+        "peak_db": -6.02,
+        "peak_linear": 0.4999,
+    }
     assert_rendered_and_deleted(reaper)
 
 
@@ -140,6 +160,21 @@ def test_analyze_dynamics(reaper, call):
         "peak_db": -8.9,
         "crest_factor_db": 5.1,
         "dr_score": 5.1,
+    }
+    assert_rendered_and_deleted(reaper)
+
+
+@pytest.mark.parametrize(("seconds", "dr_score"), [(3.0, 5.1), (2.99, 0.0)])
+def test_analyze_dynamics_dr_needs_one_whole_3s_block(reaper, call, seconds, dr_score):
+    # Exactly 3 s holds one DR block, whose crest is the steady tone's; anything
+    # shorter holds none, and the DR score falls back to 0.
+    reaper.length = seconds
+    assert call("analyze_dynamics") == {
+        "success": True,
+        "rms_db": -14.1,
+        "peak_db": -8.9,
+        "crest_factor_db": 5.1,
+        "dr_score": dr_score,
     }
     assert_rendered_and_deleted(reaper)
 
@@ -184,6 +219,41 @@ def test_analyze_stereo_field(reaper, call):
     assert_rendered_and_deleted(reaper)
 
 
+def stereo_stats(n_samples):
+    """Width, L/R correlation and mid/side RMS (dB) of the first n samples, by definition."""
+    t = np.arange(n_samples) / 48000
+    left, right = LEFT * np.sin(2 * np.pi * 440 * t), RIGHT * np.sin(2 * np.pi * 660 * t)
+    mid_rms = np.sqrt(np.mean(((left + right) / 2) ** 2))
+    side_rms = np.sqrt(np.mean(((left - right) / 2) ** 2))
+    corr = np.corrcoef(left, right)[0, 1]
+    return side_rms / mid_rms, corr, 20 * np.log10(mid_rms), 20 * np.log10(side_rms)
+
+
+@pytest.mark.parametrize(
+    ("seconds", "width", "corr", "mid_db", "side_db", "mono_ok"),
+    [(0.001, 0.599, 0.349, -12.1, -16.6, True), (0.003, 1.215, -0.25, -14.9, -13.2, False)],
+)
+def test_analyze_stereo_field_short_render(reaper, call, seconds, width, corr, mid_db, side_db,
+                                           mono_ok):
+    # Over a few milliseconds the two tones are not orthogonal, so mid and side differ
+    # and the correlation leaves 0: positive at 1 ms, negative (phase trouble) at 3 ms.
+    reaper.length = seconds
+    result = call("analyze_stereo_field")
+    expected = stereo_stats(round(seconds * 48000))
+    got = [result[k] for k in ("stereo_width_ratio", "lr_correlation", "mid_rms_db", "side_rms_db")]
+    assert got == pytest.approx(expected, abs=0.06)
+    assert result == {
+        "success": True,
+        "stereo_width_ratio": width,
+        "lr_correlation": corr,
+        "mid_rms_db": mid_db,
+        "side_rms_db": side_db,
+        "mono_compatible": mono_ok,
+        "notes": NOTES,
+    }
+    assert_rendered_and_deleted(reaper)
+
+
 def test_analyze_stereo_field_silent(reaper, call):
     reaper.silent = True
     assert call("analyze_stereo_field") == {"success": False, "error": "Project appears to be silent"}
@@ -202,9 +272,23 @@ def test_analyze_transients(reaper, call):
     # dozens of onsets from frame-to-frame flux and quantization noise; their exact
     # count depends on the render's bit depth, so only their shape is pinned.
     assert 0 < result["onset_count"] == len(times) <= 100
-    assert times == sorted(times)
+    # Distinct events in time order, each to the millisecond.
+    assert times == sorted(set(times))
+    assert times == [round(t, 3) for t in times]
     assert 0 < times[0] and times[-1] < 4.0
     # Transient analysis renders at 44.1 kHz instead of the 48 kHz default.
+    assert_rendered_and_deleted(reaper, rate=44100)
+
+
+def test_analyze_transients_caps_the_list_at_100(reaper, call):
+    # 8 s of the steady tones yields well over 100 detected onsets.
+    reaper.length = 8.0
+    result = call("analyze_transients")
+    times = result["onset_times_seconds"]
+    assert result["onset_count"] > 100
+    assert len(times) == 100
+    assert result["note"] == "Showing up to 100 events"
+    assert times == sorted(set(times))
     assert_rendered_and_deleted(reaper, rate=44100)
 
 

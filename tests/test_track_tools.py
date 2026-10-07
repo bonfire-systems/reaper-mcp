@@ -3,8 +3,9 @@
 import anyio
 import pytest
 
+from reaper_mcp import track_tools
 from tests.conftest import _call
-from tests.fake_reaper.objects import ItemState
+from tests.fake_reaper.objects import FXState, ItemState
 
 DEFAULT_INFO = {"D_VOL": 1.0, "D_PAN": 0.0, "B_MUTE": 0.0, "I_SOLO": 0.0}
 OUT_OF_RANGE = {"success": False, "error": "list index out of range"}
@@ -21,6 +22,13 @@ def test_create_track_audio(reaper):
     assert result == {"success": True, "track_index": 1, "name": "Gtr", "type": "audio"}
     assert [t.name for t in reaper.tracks] == ["first", "Gtr"]
     assert reaper.tracks[1].info == DEFAULT_INFO
+
+
+def test_create_track_from_python_defaults_to_audio(reaper):
+    assert track_tools.create_track(name="Gtr") == {
+        "success": True, "track_index": 0, "name": "Gtr", "type": "audio",
+    }
+    assert reaper.tracks[0].info == DEFAULT_INFO
 
 
 @pytest.mark.parametrize("track_type", ["midi", "instrument"])
@@ -100,9 +108,16 @@ def test_set_track_pan_out_of_range(reaper, call):
 
 def test_set_track_mute_and_unmute(reaper, call):
     state = reaper.add_track("a")
+    reaper.add_track("b")
+    assert call("set_track_mute", track_index=1, muted=True) == {
+        "success": True, "track_index": 1, "muted": True,
+    }
+    assert reaper.tracks[1].info["B_MUTE"] == 1
     assert call("set_track_mute", track_index=0, muted=True)["muted"] is True
     assert state.info["B_MUTE"] == 1
-    assert call("set_track_mute", track_index=0, muted=False)["muted"] is False
+    assert call("set_track_mute", track_index=0, muted=False) == {
+        "success": True, "track_index": 0, "muted": False,
+    }
     assert state.info["B_MUTE"] == 0
 
 
@@ -112,9 +127,15 @@ def test_set_track_mute_out_of_range(reaper, call):
 
 def test_set_track_solo_and_unsolo(reaper, call):
     state = reaper.add_track("a")
+    reaper.add_track("b")
+    assert call("set_track_solo", track_index=1, soloed=True) == {
+        "success": True, "track_index": 1, "soloed": True,
+    }
     assert call("set_track_solo", track_index=0, soloed=True)["soloed"] is True
     assert state.info["I_SOLO"] == 2  # solo in place
-    assert call("set_track_solo", track_index=0, soloed=False)["soloed"] is False
+    assert call("set_track_solo", track_index=0, soloed=False) == {
+        "success": True, "track_index": 0, "soloed": False,
+    }
     assert state.info["I_SOLO"] == 0
 
 
@@ -140,6 +161,16 @@ def test_get_track_info(reaper, call):
         "item_count": 1,
         "items": [{"index": 0, "position": 1.0, "length": 2.0, "name": "take"}],
     }
+
+
+def test_get_track_info_lists_fx(reaper, call):
+    state = reaper.add_track("a")
+    state.fxs += [FXState("ReaEQ", [0.5] * 3), FXState("ReaComp", [0.5] * 4, enabled=False)]
+    result = call("get_track_info", track_index=0)
+    assert (result["fx_count"], result["fx"]) == (2, [
+        {"index": 0, "name": "VST: ReaEQ (Cockos)", "enabled": True},
+        {"index": 1, "name": "VST: ReaComp (Cockos)", "enabled": False},
+    ])
 
 
 def test_get_track_info_out_of_range(reaper, call):
@@ -171,6 +202,12 @@ def test_set_track_color(reaper, call):
         "b": 1,
     }
     assert state.info["I_CUSTOMCOLOR"] == 255 | (128 << 8) | (1 << 16) | 0x1000000
+
+
+def test_set_track_color_keeps_even_channels(reaper, call):
+    state = reaper.add_track("a")
+    call("set_track_color", track_index=0, r=16, g=0, b=2)
+    assert state.info["I_CUSTOMCOLOR"] == 16 | (2 << 16) | 0x1000000
 
 
 def test_set_track_color_out_of_range(reaper, call):

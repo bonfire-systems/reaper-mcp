@@ -2,6 +2,7 @@
 
 import pytest
 
+from reaper_mcp import midi_tools
 from reaper_mcp.midi_tools import _parse_chord
 from tests.fake_reaper.objects import ItemState, Note
 
@@ -117,6 +118,13 @@ def test_add_midi_note_defaults(reaper, call):
     assert track.items[0].notes == [Note(0.0, 1.0, 60, 100, 0)]
 
 
+def test_add_midi_note_python_defaults(reaper, call):
+    # Called from Python, not through the MCP schema: the function's own defaults.
+    track = _midi_item(reaper, call)
+    midi_tools.add_midi_note(track_index=0, item_index=0, pitch=60, start=0.0, length=1.0)
+    assert track.items[0].notes == [Note(0.0, 1.0, 60, 100, 0)]
+
+
 def test_add_midi_note_audio_item(reaper, call):
     track = reaper.add_track("Audio")
     track.items.append(ItemState(reaper.new_pointer("MediaItem"), 0.0, 2.0, midi=False))
@@ -178,6 +186,14 @@ def test_create_chord_progression_follows_tempo_and_beats(reaper, call):
     assert [n.end for n in track.items[0].notes] == pytest.approx([1.9] * 4)
 
 
+def test_create_chord_progression_python_default_is_four_beats(reaper):
+    track = reaper.add_track("Keys")
+    result = midi_tools.create_chord_progression(track_index=0, chords="C", start_position=0.0)
+    # 4 beats at 120 bpm.
+    assert result["total_length"] == 2.0
+    assert track.items[0].length == 2.0
+
+
 def test_create_chord_progression_unparseable_chords_become_c_major(reaper, call):
     track = reaper.add_track("Keys")
     result = call("create_chord_progression", track_index=0, chords="Hxyz,", start_position=0.0)
@@ -233,6 +249,14 @@ def test_create_drum_pattern_maps_every_drum(reaper, call):
     assert [n.start for n in notes] == [float(i) for i in range(9)]
     assert {n.end - n.start for n in notes} == {0.5}
     assert {(n.velocity, n.channel) for n in notes} == {(100, 9)}
+
+
+def test_create_drum_pattern_python_defaults(reaper):
+    # One bar of 4 beats at 120 bpm, played once.
+    track = reaper.add_track("Drums")
+    result = midi_tools.create_drum_pattern(track_index=0, pattern="k.", start_position=0.0)
+    assert (result["repeats"], result["total_length"]) == (1, 2.0)
+    assert track.items[0].notes == [Note(0.0, 0.5, 36, 100, 9)]
 
 
 def test_create_drum_pattern_empty_pattern_creates_nothing(reaper, call):

@@ -2,6 +2,7 @@
 
 import pytest
 
+from reaper_mcp import audio_tools
 from tests.fake_reaper.objects import ItemState
 
 RECORD, STOP, PLAY = 1013, 1016, 1007
@@ -44,6 +45,16 @@ def test_import_audio_file_appends_after_existing_items(reaper, call, tmp_path):
     result = call("import_audio_file", file_path=str(wav), track_index=0)
     assert (result["item_index"], result["position"]) == (1, 0.0)
     assert len(track.items) == 2
+
+
+def test_import_audio_file_from_python_defaults_to_the_start(reaper, tmp_path):
+    wav = tmp_path / "loop.wav"
+    wav.write_bytes(b"RIFF")
+    track = reaper.add_track("Audio")
+    reaper.cursor = 5.0
+    result = audio_tools.import_audio_file(file_path=str(wav), track_index=0)
+    assert (result["success"], result["position"]) == (True, 0.0)
+    assert [i.position for i in track.items] == [0.0]
 
 
 def test_import_audio_file_missing_file(reaper, call, tmp_path):
@@ -145,6 +156,25 @@ def test_edit_audio_item_fades(reaper, call):
         "success": True, "track_index": 0, "item_index": 0, "position": 1.0, "length": 4.0,
     }
     assert track.items[0].info == {"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25}
+
+
+def test_edit_audio_item_keeps_existing_fades(reaper, call):
+    track = _audio_item(reaper)
+    track.items[0].info.update({"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25})
+    call("edit_audio_item", track_index=0, item_index=0, end_trim=1.0)
+    assert track.items[0].info == {"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25}
+
+
+def test_edit_audio_item_from_python_defaults_change_nothing(reaper):
+    track = _audio_item(reaper)
+    track.items[0].info.update({"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25})
+    result = audio_tools.edit_audio_item(track_index=0, item_index=0)
+    assert result == {
+        "success": True, "track_index": 0, "item_index": 0, "position": 1.0, "length": 4.0,
+    }
+    item = track.items[0]
+    assert (item.position, item.length, item.take_info["D_STARTOFFS"]) == (1.0, 4.0, 0.0)
+    assert item.info == {"D_FADEINLEN": 0.5, "D_FADEOUTLEN": 0.25}
 
 
 def test_edit_audio_item_bad_item(reaper, call):

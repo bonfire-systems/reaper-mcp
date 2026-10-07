@@ -1,6 +1,10 @@
 """Characterization tests for project_tools, run end to end against the fake REAPER."""
 
+from datetime import datetime
+
 from reapy import reascript_api
+
+from reaper_mcp import project_tools
 
 NEW_PROJECT_TAB = 41929
 
@@ -26,11 +30,30 @@ def test_create_project_without_time_signature(reaper, call):
     assert reaper.bpm == 100.0
 
 
+def _stamped(name: str, prefix: str) -> datetime:
+    """The time in a default name such as "Project 2026-10-07 14-03-59"."""
+    assert name.startswith(prefix), name
+    return datetime.strptime(name.removeprefix(prefix), "%Y-%m-%d %H-%M-%S")
+
+
 def test_create_project_default_name(reaper, call):
+    before = datetime.now().replace(microsecond=0)
     result = call("create_project", time_signature="")
-    assert result["success"] is True
+    assert (result["success"], result["tempo"], result["time_signature"]) == (True, 120.0, "")
+    assert before <= _stamped(result["name"], "New Project ") <= datetime.now()
+
+
+def test_python_defaults_match_the_advertised_ones(reaper, monkeypatch):
+    """Called from Python with no arguments, the tools behave as an MCP call
+    that leaves the arguments out."""
+    monkeypatch.setenv("HOME", str(reaper.tmp))
+    monkeypatch.chdir(reaper.tmp)
+    result = project_tools.create_project()
+    assert (result["tempo"], result["time_signature"]) == (120.0, "4/4")
     assert result["name"].startswith("New Project ")
-    assert result["tempo"] == 120.0
+    assert reaper.tempo_markers == [[0.0, 120.0, 4, 4]]
+    expected = reaper.tmp / "Documents" / "REAPER Projects" / "Test Project.rpp"
+    assert project_tools.save_project() == {"success": True, "project_path": str(expected)}
 
 
 def test_create_project_malformed_time_signature(reaper, call):
@@ -55,6 +78,27 @@ def test_save_project_default_path(reaper, call, monkeypatch):
     expected = reaper.tmp / "Documents" / "REAPER Projects" / "Test Project.rpp"
     assert result == {"success": True, "project_path": str(expected)}
     assert expected.is_file()
+
+
+def test_save_project_names_an_unnamed_project_by_time(reaper, call, monkeypatch):
+    monkeypatch.setenv("HOME", str(reaper.tmp))
+    reaper.project_name = ""
+    before = datetime.now().replace(microsecond=0)
+    result = call("save_project")
+    path = reaper.tmp / "Documents" / "REAPER Projects"
+    saved = result["project_path"]
+    assert result == {"success": True, "project_path": saved}
+    assert saved.startswith(f"{path}/") and saved.endswith(".rpp")
+    assert before <= _stamped(saved[len(f"{path}/"):-4], "Project ") <= datetime.now()
+    assert reaper.saved_paths == [saved]
+
+
+def test_save_project_default_folder_already_exists(reaper, call, monkeypatch):
+    monkeypatch.setenv("HOME", str(reaper.tmp))
+    folder = reaper.tmp / "Documents" / "REAPER Projects"
+    folder.mkdir(parents=True)
+    result = call("save_project")
+    assert result == {"success": True, "project_path": str(folder / "Test Project.rpp")}
 
 
 def test_save_project_reports_a_file_reaper_did_not_write(reaper, call, monkeypatch):
@@ -144,3 +188,16 @@ def test_set_tempo_edits_the_marker_at_the_start(reaper, call):
     reaper.tempo_markers = [[0.0, 120.0, 3, 4]]
     assert call("set_tempo", bpm=90.0) == {"success": True, "tempo": 90.0}
     assert reaper.tempo_markers == [[0.0, 90.0, 3, 4]]
+
+
+def test_set_time_signature_treats_a_marker_a_hair_past_zero_as_the_start(reaper, call):
+    reaper.tempo_markers = [[1e-9, 100.0, 4, 4]]
+    reaper.bpm = 100.0
+    call("set_time_signature", numerator=3, denominator=4)
+    assert reaper.tempo_markers == [[0.0, 100.0, 3, 4]]
+
+
+def test_set_time_signature_leaves_a_marker_half_a_second_in(reaper, call):
+    reaper.tempo_markers = [[0.5, 140.0, 4, 4]]
+    call("set_time_signature", numerator=7, denominator=8)
+    assert reaper.tempo_markers == [[0.0, 120.0, 7, 8], [0.5, 140.0, 4, 4]]

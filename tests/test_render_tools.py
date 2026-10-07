@@ -10,8 +10,13 @@ import pytest
 import soundfile as sf
 from reapy import reascript_api
 
-from reaper_mcp.render_tools import render_to_temp_file
-from tests.helpers import RENDER
+from reaper_mcp.render_tools import (
+    render_project,
+    render_stems,
+    render_time_selection,
+    render_to_temp_file,
+)
+from tests.helpers import RENDER, WAV_24
 
 
 def fmt(raw: bytes) -> str:
@@ -145,3 +150,85 @@ def test_render_stems_empty_project_is_refused(reaper, call, tmp_path):
     reaper.length = 0.0
     result = call("render_stems", output_directory=str(tmp_path))
     assert result["success"] is False and "nothing to render" in result["error"]
+
+
+def test_render_project_creates_missing_parent_folders(reaper, call, tmp_path):
+    out = tmp_path / "new" / "deeper" / "mix.wav"
+    assert call("render_project", output_path=str(out))["success"] is True
+    assert out.is_file()
+
+
+def test_render_project_of_a_short_project(reaper, call, tmp_path):
+    reaper.length = 0.5
+    out = tmp_path / "mix.wav"
+    assert call("render_project", output_path=str(out))["success"] is True
+    assert sf.info(str(out)).duration == pytest.approx(0.5)
+
+
+DEFAULT_SETTINGS = {"RENDER_FORMAT": WAV_24, "RENDER_SRATE": 48000.0, "RENDER_CHANNELS": 2.0}
+
+
+def _settings(reaper) -> dict:
+    return {key: reaper.project_info[key] for key in DEFAULT_SETTINGS}
+
+
+def test_render_project_python_defaults(reaper, tmp_path):
+    out = tmp_path / "mix"
+    result = render_project(output_path=str(out))
+    assert result["output_path"] == str(tmp_path / "mix.wav")
+    assert (result["format"], result["sample_rate"], result["bit_depth"], result["channels"]) == (
+        "wav", 48000, 24, 2,
+    )
+    assert _settings(reaper) == DEFAULT_SETTINGS
+
+
+def test_render_time_selection_python_defaults(reaper, tmp_path):
+    result = render_time_selection(output_path=str(tmp_path / "part"), start=0.0, end=1.0)
+    assert (result["output_path"], result["format"]) == (str(tmp_path / "part.wav"), "wav")
+    assert _settings(reaper) == DEFAULT_SETTINGS
+
+
+def test_render_stems_python_defaults(reaper, tmp_path):
+    reaper.add_track("Kick")
+    result = render_stems(output_directory=str(tmp_path))
+    assert result["stems"][0]["output_path"] == str(tmp_path / "Kick.wav")
+    assert _settings(reaper) == DEFAULT_SETTINGS
+
+
+def test_render_time_selection_from_the_project_start(reaper, call, tmp_path):
+    out = tmp_path / "intro.wav"
+    result = call("render_time_selection", output_path=str(out), start=0.0, end=0.5)
+    assert result["success"] is True and (result["start"], result["end"]) == (0.0, 0.5)
+    assert sf.info(str(out)).duration == pytest.approx(0.5)
+
+
+def test_render_stems_reply_and_settings(reaper, call, tmp_path):
+    reaper.add_track("Kick")
+    reaper.add_track("")
+    result = call("render_stems", output_directory=str(tmp_path), sample_rate=44100, bit_depth=16)
+    assert result == {
+        "success": True,
+        "output_directory": str(tmp_path),
+        "stems": [
+            {"track_index": 0, "track_name": "Kick", "output_path": str(tmp_path / "Kick.wav"),
+             "exists": True},
+            {"track_index": 1, "track_name": "Track_1", "output_path": str(tmp_path / "Track_1.wav"),
+             "exists": True},
+        ],
+    }
+    # Stems are always stereo, over the whole project.
+    assert reaper.project_info["RENDER_CHANNELS"] == 2.0
+    assert reaper.project_info["RENDER_BOUNDSFLAG"] == 1.0
+    assert reaper.project_info["RENDER_FORMAT"] == fmt(b"evaw\x10\x00\x01")
+
+
+def test_render_stems_unsupported_format_renders_nothing(reaper, call, tmp_path):
+    reaper.add_track("Kick").info["I_SOLO"] = 1.0
+    reaper.add_track("Bass")
+    result = call("render_stems", output_directory=str(tmp_path), format="aiff")
+    assert result == {
+        "success": False,
+        "error": "unsupported format 'aiff'; use one of ['flac', 'mp3', 'ogg', 'wav']",
+    }
+    assert reaper.commands == []
+    assert [t.info["I_SOLO"] for t in reaper.tracks] == [1.0, 0.0]

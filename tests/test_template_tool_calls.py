@@ -1,5 +1,6 @@
 """MCP-level tests for list_track_templates and insert_track_template against the fake REAPER."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -102,9 +103,11 @@ def test_insert_track_template_explicit_null_position_appends(reaper, call, temp
 
 @pytest.mark.usefixtures("templates")
 @pytest.mark.parametrize("position", [0, 1, 3])
-def test_insert_track_template_at_position(reaper, call, position):
+def test_insert_track_template_at_position(reaper, call, caplog, position):
     _existing(reaper)
-    result = call("insert_track_template", template="vocals/lead vox", position=position)
+    with caplog.at_level(logging.WARNING, logger="reaper_mcp.template_tools"):
+        result = call("insert_track_template", template="vocals/lead vox", position=position)
+    assert caplog.records == []  # REAPER inserted one contiguous block: nothing to warn about
     names = ["A", "B", "C"]
     names[position:position] = ["from Lead Vox"] * 2
     assert [t.name for t in reaper.tracks] == names

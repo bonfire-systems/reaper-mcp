@@ -3,8 +3,9 @@
 import numpy as np
 import pytest
 
-from tests.fake_reaper.objects import FXState
+from reaper_mcp import mastering_tools
 from reaper_mcp.mastering_tools import MASTERING_PRESETS
+from tests.fake_reaper.objects import INSTALLED_FX, FXState
 from tests.helpers import assert_rendered_and_deleted
 
 DEFAULT_INFO = {"D_VOL": 1.0, "D_PAN": 0.0, "B_MUTE": 0.0, "I_SOLO": 0.0}
@@ -92,6 +93,11 @@ def test_set_master_volume(reaper, call):
     assert reaper.master.info["D_VOL"] == pytest.approx(10 ** (-3 / 20))
 
 
+@pytest.mark.parametrize(("volume_db", "shown"), [(-3.14159, -3.14), (-3.5, -3.5)])
+def test_set_master_volume_reports_two_decimals(reaper, call, volume_db, shown):
+    assert call("set_master_volume", volume_db=volume_db) == {"success": True, "volume_db": shown}
+
+
 # apply_mastering_chain
 
 
@@ -103,9 +109,12 @@ def test_set_master_volume(reaper, call):
 )
 def test_apply_mastering_chain(reaper, call, preset, chain):
     result = call("apply_mastering_chain", preset=preset)
-    assert result["success"] is True
-    assert [fx["fx_index"] for fx in result["fx_chain"]] == list(range(len(chain)))
-    assert result["missing"] == []
+    assert result == {
+        "success": True,
+        "preset": preset,
+        "fx_chain": [{"fx_index": i, "name": f"VST: {name} (Cockos)"} for i, name in enumerate(chain)],
+        "missing": [],
+    }
     assert plugins(reaper) == chain
 
 
@@ -114,6 +123,12 @@ def test_apply_mastering_chain_reports_missing_plugins(reaper, call, monkeypatch
     result = call("apply_mastering_chain")
     assert result["missing"] == ["NoSuchComp"]
     assert plugins(reaper) == ["ReaEQ", "ReaLimit"]
+
+
+def test_apply_mastering_chain_defaults_to_the_default_preset(reaper):
+    # Called from Python with no preset, the function's own default applies.
+    assert mastering_tools.apply_mastering_chain()["preset"] == "default"
+    assert plugins(reaper) == ["ReaEQ", "ReaComp", "ReaLimit"]
 
 
 def test_apply_mastering_chain_unknown_preset(reaper, call):
@@ -145,6 +160,20 @@ def test_apply_limiter_release_past_the_range_lands_on_its_end(reaper, call):
     assert result["release"] == "6.0 dB/sec"
 
 
+def test_apply_limiter_defaults(reaper):
+    # Called from Python with no arguments: -0.5 dB threshold, 15 dB/sec release.
+    result = mastering_tools.apply_limiter()
+    assert (result["threshold"], result["release"]) == ("-0.50 dB", "15.0 dB/sec")
+
+
+def test_apply_limiter_without_realimit_installed(reaper, call, monkeypatch):
+    monkeypatch.delitem(INSTALLED_FX, "ReaLimit")
+    assert call("apply_limiter") == {
+        "success": False, "error": "ReaLimit not found — check REAPER installation",
+    }
+    assert reaper.master.fxs == []
+
+
 # analyze_loudness
 
 
@@ -159,6 +188,8 @@ def test_analyze_loudness(reaper, call):
     assert result["integrated_lufs"] == -8.8
     assert result["true_peak_dbtp"] == pytest.approx(20 * np.log10(0.5), abs=0.05)
     assert result["true_peak_dbtp"] == -6.0
+    # Reported as a 0.1 dB reading, not a whole number of dB.
+    assert isinstance(result["true_peak_dbtp"], float)
     assert result["sample_rate"] == 48000
     assert_rendered_and_deleted(reaper)
 
@@ -175,6 +206,14 @@ def test_analyze_loudness_silent(reaper, call):
 def test_normalize_project(reaper, call):
     reaper.master.info["D_VOL"] = 0.5
     result = call("normalize_project", target_lufs=-14.0)
+    # -8.8 LUFS is the fake signal's loudness (see test_analyze_loudness).
+    assert result == {
+        "success": True,
+        "original_lufs": -8.8,
+        "target_lufs": -14.0,
+        "gain_applied_db": -5.2,
+        "new_master_volume_db": -11.3,
+    }
     gain = -14.0 - result["original_lufs"]
     assert result["success"] is True
     assert result["gain_applied_db"] == pytest.approx(gain, abs=0.1)

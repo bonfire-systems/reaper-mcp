@@ -2,6 +2,7 @@
 
 import pytest
 
+from reaper_mcp.mixing_tools import create_send
 from reaper_mcp.units import db_to_linear as _db_to_linear
 
 OUT_OF_RANGE = "list index out of range"
@@ -29,6 +30,8 @@ def test_add_volume_automation_inserts_a_fader_scaled_point(reaper, call):
     assert time == 2.5
     # The fake's stand-in fader curve is 1000 * linear (see its ScaleToEnvelopeMode).
     assert value == pytest.approx(1000 * _db_to_linear(-6.0))
+    # The show action is a toggle: running it on a visible envelope would hide it.
+    assert reaper.commands == []
 
 
 def test_add_volume_automation_floor_is_silence(reaper, call):
@@ -64,6 +67,7 @@ def test_add_pan_automation_inverts_for_the_envelope(reaper, call):
     assert result == {"success": True, "track_index": 0, "position": 4.0, "pan": -0.5}
     # REAPER's pan envelope runs opposite to track pan (verified by render, tests/live).
     assert reaper.envelopes[(track.pointer, "Pan")] == [(4.0, 0.5)]
+    assert reaper.commands == []  # already visible: not toggled
 
 
 def test_add_pan_automation_passes_out_of_range_pan_through(reaper, call):
@@ -104,6 +108,13 @@ def test_create_send_default_volume(reaper, call):
     [send] = src.sends
     assert (send.dest, send.volume, send.pan, send.muted) == (dst.pointer, 1.0, 0.0, False)
     assert dst.sends == []
+
+
+def test_create_send_python_default_is_unity_gain(reaper):
+    src = reaper.add_track("Src")
+    reaper.add_track("Dst")
+    assert create_send(source_track_index=0, dest_track_index=1)["volume_db"] == 0.0
+    assert src.sends[0].volume == 1.0
 
 
 def test_create_send_sets_volume_and_indexes_sequentially(reaper, call):
