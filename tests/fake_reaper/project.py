@@ -84,6 +84,14 @@ class FakeProject:
     def regions(self) -> list[FakeRegion]:
         return [FakeRegion(s, e) for s, e in self._reaper.regions]
 
+    def add_marker(self, position, name="", color=0) -> FakeMarker:
+        self._reaper.markers.append(position)
+        return FakeMarker(position)
+
+    def add_region(self, start, end, name="", color=0) -> FakeRegion:  # noqa: PLR0917 -- mirrors reapy.Project.add_region
+        self._reaper.regions.append((start, end))
+        return FakeRegion(start, end)
+
     def add_track(self, index=0, name="") -> FakeTrack:
         state = TrackState(self._reaper.new_pointer("MediaTrack"), name)
         n = len(self._reaper.tracks)

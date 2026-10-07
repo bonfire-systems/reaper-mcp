@@ -1,0 +1,98 @@
+"""The reapy behaviours the fake models, checked against the fake and, with
+--live, against a running REAPER.
+
+tests/test_fake_reaper.py proves the fake exposes only API reapy's classes
+have. This proves the fake *behaves* like REAPER where the server's bugs and
+fixes depend on it, so a characterization test that passes on the fake means
+the same thing in REAPER.
+"""
+
+import pytest
+
+from tests.fake_reaper import install
+from tests.live.conftest import live_project  # noqa: F401 -- fixture, used by name
+
+
+@pytest.fixture(params=["fake", pytest.param("live", marks=pytest.mark.live)])
+def project(request, monkeypatch, tmp_path):
+    if request.param == "fake":
+        return install(monkeypatch, tmp_path).project
+    return request.getfixturevalue("live_project")
+
+
+def test_time_signature_is_bpm_and_numerator(project):
+    project.bpm = 95.0
+    bpm, numerator = project.time_signature
+    assert bpm == pytest.approx(95.0)
+    assert numerator == pytest.approx(4.0)
+
+
+def test_time_signature_is_read_only(project):
+    with pytest.raises(AttributeError):
+        project.time_signature = (3, 4)
+
+
+def test_save_rejects_a_path(project):
+    with pytest.raises(TypeError):
+        project.save("/tmp/never-written.rpp")
+
+
+def test_add_fx_returns_an_fx_object(project):
+    track = project.add_track(0, "fx")
+    fx = track.add_fx("ReaEQ")
+    assert "ReaEQ" in fx.name
+    with pytest.raises(TypeError):
+        _ = fx < 0
+    with pytest.raises(ValueError):
+        track.add_fx("No Such Plugin 7f3a")
+
+
+def test_track_has_no_volume_or_pan(project):
+    track = project.add_track(0, "t")
+    assert not hasattr(track, "volume")
+    assert not hasattr(track, "pan")
+
+
+def test_solo_and_mute_are_methods_and_assignment_does_nothing(project):
+    project.add_track(0, "t")
+    track = project.tracks[0]
+    assert callable(track.solo)
+    assert callable(track.mute)
+    track.solo = True
+    track.mute = True
+    fresh = project.tracks[0]
+    assert fresh.is_solo is False
+    assert fresh.is_muted is False
+
+
+def test_solo_and_mute_methods_take_effect(project):
+    project.add_track(0, "t")
+    project.tracks[0].solo()
+    project.tracks[0].mute()
+    assert project.tracks[0].is_solo is True
+    assert project.tracks[0].is_muted is True
+
+
+def test_markers_and_regions_have_no_name(project):
+    project.add_marker(1.0, name="verse")
+    project.add_region(2.0, 4.0, name="chorus")
+    assert not hasattr(project.markers[0], "name")
+    assert not hasattr(project.regions[0], "name")
+    assert project.markers[0].position == pytest.approx(1.0)
+
+
+def test_fx_param_normalized_round_trips(project):
+    track = project.add_track(0, "fx")
+    fx = track.add_fx("ReaEQ")
+    fx.params[0].normalized = 0.25
+    param = track.fxs[0].params[0]
+    assert param.normalized == pytest.approx(0.25, abs=1e-3)
+    assert not hasattr(param, "normalized_value")
+    assert not hasattr(param, "formatted_value")
+
+
+def test_midi_item_take_is_midi(project):
+    track = project.add_track(0, "midi")
+    item = track.add_midi_item(0.0, 2.0)
+    assert item.active_take.is_midi
+    assert item.length == pytest.approx(2.0)

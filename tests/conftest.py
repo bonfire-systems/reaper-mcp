@@ -8,6 +8,26 @@ from reaper_mcp.server import mcp
 from tests.fake_reaper import FakeReaper, install
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--live", action="store_true",
+        help="also run tests marked `live` against a running REAPER; unreachable REAPER fails",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "live: needs a running REAPER; selected with --live")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--live"):
+        return
+    skip = pytest.mark.skip(reason="needs a running REAPER; run with --live")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip)
+
+
 @pytest.fixture
 def reaper(monkeypatch, tmp_path) -> FakeReaper:
     """A fake REAPER behind reapy, so the tools run end to end without one."""
