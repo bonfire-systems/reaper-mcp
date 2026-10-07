@@ -21,7 +21,6 @@ from typing import Any
 
 from reaper_mcp.reaper import RPR, ensure_connected, get_project
 
-
 TEMPLATE_SUFFIX = ".rtracktemplate"
 
 

@@ -1,9 +1,6 @@
 from reaper_mcp.reaper import RPR, get_project, is_null
 from reaper_mcp.units import db_to_linear
 
-
-
-
 # "Track: Toggle track volume/pan envelope visible", run on the selected tracks.
 SHOW_ENVELOPE = {"Volume": 40406, "Pan": 40407}
 

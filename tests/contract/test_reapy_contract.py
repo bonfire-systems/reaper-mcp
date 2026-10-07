@@ -8,10 +8,10 @@ the same thing in REAPER.
 """
 
 import pytest
-from tests.live.rpr import RPR
 from reapy.errors import DistError
 
 from tests.fake_reaper import install
+from tests.live.rpr import RPR
 
 
 @pytest.fixture(params=["fake", pytest.param("live", marks=pytest.mark.live)])

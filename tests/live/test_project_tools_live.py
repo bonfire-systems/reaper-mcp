@@ -1,8 +1,8 @@
 """Project tools against a running REAPER."""
 
-from tests.live.rpr import RPR
-
 import pytest
+
+from tests.live.rpr import RPR
 
 pytestmark = pytest.mark.live
 

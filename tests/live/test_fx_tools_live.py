@@ -4,6 +4,7 @@ REAPER's own FX state."""
 import numpy as np
 import pytest
 import soundfile as sf
+
 from tests.live.rpr import RPR
 
 pytestmark = pytest.mark.live

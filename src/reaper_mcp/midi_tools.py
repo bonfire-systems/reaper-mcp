@@ -1,7 +1,6 @@
 
 from reaper_mcp.reaper import get_project
 
-
 # GM standard drum MIDI notes
 DRUM_MAPPINGS = {
     "k": 36,  # kick  - C1
