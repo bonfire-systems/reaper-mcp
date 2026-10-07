@@ -4,9 +4,13 @@ Isolation is by reset, not by a new project: REAPER's "New project" asks
 whether to save a dirty project in a modal dialog, which would hang the run.
 """
 
+import sys
+
 import pytest
 import reapy
 from reapy import reascript_api as RPR
+
+from tests.live.watchdog import Watchdog, guard_reapy
 
 RESET_BPM = 120.0
 
@@ -41,8 +45,21 @@ def reset(project: reapy.Project) -> None:
     project.bpm = RESET_BPM
 
 
+@pytest.fixture(scope="session")
+def dialog_watchdog():
+    """End the run, naming the dialog, if REAPER blocks on one."""
+    watchdog = Watchdog()
+    if not watchdog.available:
+        print("[live watchdog] not guarding: needs macOS System Events", file=sys.__stderr__)
+    watchdog.start()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        guard_reapy(watchdog, monkeypatch)
+        yield watchdog
+    watchdog.stop()
+
+
 @pytest.fixture
-def live_project():
+def live_project(dialog_watchdog):
     """The running REAPER's current project, emptied before and after the test."""
     project = _connect()
     reset(project)
