@@ -69,69 +69,77 @@ def test_rename_track_out_of_range(reaper):
     assert call_with_name("rename_track", track_index=0, name="x") == OUT_OF_RANGE
 
 
-def test_set_track_volume_bug(reaper, call):
+def test_set_track_volume(reaper, call):
     state = reaper.add_track("a")
     result = call("set_track_volume", track_index=0, volume_db=-6.0)
-    # BUG: reapy Track has no volume; the value lands on a throwaway proxy and the fader never moves.
     assert result == {"success": True, "track_index": 0, "volume_db": -6.0}
-    assert state.info == DEFAULT_INFO
+    assert state.info["D_VOL"] == pytest.approx(10 ** (-6 / 20))
+
+
+def test_set_track_volume_floor_is_silence(reaper, call):
+    state = reaper.add_track("a")
+    result = call("set_track_volume", track_index=0, volume_db=-200.0)
+    assert result["volume_db"] == -150.0
+    assert state.info["D_VOL"] == 0.0
 
 
 def test_set_track_volume_out_of_range(reaper, call):
     assert call("set_track_volume", track_index=0, volume_db=0.0) == OUT_OF_RANGE
 
 
-def test_set_track_pan_bug(reaper, call):
+def test_set_track_pan(reaper, call):
     state = reaper.add_track("a")
     result = call("set_track_pan", track_index=0, pan=-0.5)
-    # BUG: reapy Track has no pan; the value lands on a throwaway proxy and the pan never moves.
     assert result == {"success": True, "track_index": 0, "pan": -0.5}
-    assert state.info == DEFAULT_INFO
+    assert state.info["D_PAN"] == -0.5
 
 
 def test_set_track_pan_out_of_range(reaper, call):
     assert call("set_track_pan", track_index=0, pan=0.0) == OUT_OF_RANGE
 
 
-def test_set_track_mute_bug(reaper, call):
+def test_set_track_mute_and_unmute(reaper, call):
     state = reaper.add_track("a")
-    result = call("set_track_mute", track_index=0, muted=True)
-    # BUG: Track.mute is a method; assigning it shadows it on a throwaway proxy and the track stays unmuted.
-    assert result == {"success": True, "track_index": 0, "muted": True}
-    assert state.info["B_MUTE"] == 0.0
+    assert call("set_track_mute", track_index=0, muted=True)["muted"] is True
+    assert state.info["B_MUTE"] == 1
+    assert call("set_track_mute", track_index=0, muted=False)["muted"] is False
+    assert state.info["B_MUTE"] == 0
 
 
 def test_set_track_mute_out_of_range(reaper, call):
     assert call("set_track_mute", track_index=0, muted=True) == OUT_OF_RANGE
 
 
-def test_set_track_solo_bug(reaper, call):
+def test_set_track_solo_and_unsolo(reaper, call):
     state = reaper.add_track("a")
-    result = call("set_track_solo", track_index=0, soloed=True)
-    # BUG: Track.solo is a method; assigning it shadows it on a throwaway proxy and the track stays unsoloed.
-    assert result == {"success": True, "track_index": 0, "soloed": True}
-    assert state.info["I_SOLO"] == 0.0
+    assert call("set_track_solo", track_index=0, soloed=True)["soloed"] is True
+    assert state.info["I_SOLO"] == 2  # solo in place
+    assert call("set_track_solo", track_index=0, soloed=False)["soloed"] is False
+    assert state.info["I_SOLO"] == 0
 
 
 def test_set_track_solo_out_of_range(reaper, call):
     assert call("set_track_solo", track_index=0, soloed=True) == OUT_OF_RANGE
 
 
-def test_get_track_info_volume_bug(reaper, call):
-    reaper.add_track("a")
-    result = call("get_track_info", track_index=0)
-    # BUG: reapy Track has no volume, so get_track_info fails for every track.
-    assert result["success"] is False
-    assert "has no attribute 'volume'" in result["error"]
-
-
-def test_get_track_info_item_name_bug(reaper, call):
+def test_get_track_info(reaper, call):
     state = reaper.add_track("a")
-    state.items.append(ItemState("(MediaItem*)0x1", 0.0, 2.0, midi=False))
+    state.info.update({"D_VOL": 0.5, "D_PAN": 0.25, "B_MUTE": 1.0})
+    state.items.append(ItemState("(MediaItem*)0x1", 1.0, 2.0, midi=False))
     result = call("get_track_info", track_index=0)
-    # BUG: reapy Item has no name, so any track with items fails before reaching volume.
-    assert result["success"] is False
-    assert "has no attribute 'name'" in result["error"]
+    assert result == {
+        "success": True,
+        "track_index": 0,
+        "name": "a",
+        "volume_db": -6.02,
+        "pan": 0.25,
+        "muted": True,
+        "soloed": False,
+        "fx_count": 0,
+        "fx": [],
+        "item_count": 1,
+        "items": [{"index": 0, "position": 1.0, "length": 2.0, "name": "take"}],
+    }
 
 
 def test_get_track_info_out_of_range(reaper, call):
@@ -142,12 +150,15 @@ def test_list_tracks_empty(reaper, call):
     assert call("list_tracks") == {"success": True, "count": 0, "tracks": []}
 
 
-def test_list_tracks_volume_bug(reaper, call):
+def test_list_tracks(reaper, call):
     reaper.add_track("a")
+    reaper.add_track("b").info["I_SOLO"] = 2.0
     result = call("list_tracks")
-    # BUG: reapy Track has no volume, so list_tracks fails whenever the project has a track.
-    assert result["success"] is False
-    assert "has no attribute 'volume'" in result["error"]
+    assert result["count"] == 2
+    assert result["tracks"][1] == {
+        "index": 1, "name": "b", "volume_db": 0.0, "pan": 0.0,
+        "muted": False, "soloed": True, "fx_count": 0, "item_count": 0,
+    }
 
 
 def test_set_track_color(reaper, call):

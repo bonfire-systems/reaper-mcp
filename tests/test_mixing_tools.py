@@ -2,7 +2,7 @@
 
 import pytest
 
-from reaper_mcp.mixing_tools import _db_to_linear
+from reaper_mcp.units import db_to_linear as _db_to_linear
 
 OUT_OF_RANGE = "list index out of range"
 

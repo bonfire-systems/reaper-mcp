@@ -1,10 +1,7 @@
 from reaper_mcp.reaper import RPR, get_project
+from reaper_mcp.units import db_to_linear
 
 
-def _db_to_linear(db: float) -> float:
-    if db <= -150:
-        return 0.0
-    return 10 ** (db / 20.0)
 
 
 def add_volume_automation(*, track_index: int, position: float, value_db: float) -> dict:
@@ -24,7 +21,7 @@ def add_volume_automation(*, track_index: int, position: float, value_db: float)
                 "in REAPER and choose 'Show envelope for track volume'."
             ),
         }
-    linear_val = _db_to_linear(value_db)
+    linear_val = db_to_linear(value_db)
     RPR.InsertEnvelopePoint(envelope, position, linear_val, 0, 0, False, True)
     RPR.Envelope_SortPoints(envelope)
     return {"success": True, "track_index": track_index, "position": position, "value_db": value_db}
@@ -61,7 +58,7 @@ def create_send(
     send_idx = RPR.CreateTrackSend(src.id, dst.id)
     if send_idx < 0:
         return {"success": False, "error": "Failed to create send"}
-    RPR.SetTrackSendInfo_Value(src.id, 0, send_idx, "D_VOL", _db_to_linear(volume_db))
+    RPR.SetTrackSendInfo_Value(src.id, 0, send_idx, "D_VOL", db_to_linear(volume_db))
     return {
         "success": True,
         "source_track_index": source_track_index,
@@ -94,7 +91,7 @@ def set_send_volume(*, source_track_index: int, send_index: int, volume_db: floa
     """Set the volume of a send in dB."""
     project = get_project()
     track = project.tracks[source_track_index]
-    RPR.SetTrackSendInfo_Value(track.id, 0, send_index, "D_VOL", _db_to_linear(volume_db))
+    RPR.SetTrackSendInfo_Value(track.id, 0, send_index, "D_VOL", db_to_linear(volume_db))
     return {
         "success": True,
         "source_track_index": source_track_index,
