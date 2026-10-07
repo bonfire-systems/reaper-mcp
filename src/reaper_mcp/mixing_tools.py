@@ -1,16 +1,10 @@
-import logging
 from reaper_mcp.reaper import RPR, get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.mixing_tools")
 
 
 def _db_to_linear(db: float) -> float:
     if db <= -150:
         return 0.0
     return 10 ** (db / 20.0)
-
 
 
 def add_volume_automation(*, track_index: int, position: float, value_db: float) -> dict:

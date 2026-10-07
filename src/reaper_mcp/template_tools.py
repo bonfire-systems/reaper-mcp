@@ -18,9 +18,8 @@ position with ReorderSelectedTracks (default: end of the project).
 import difflib
 import logging
 from pathlib import Path
+
 from reaper_mcp.reaper import RPR, ensure_connected, get_project
-
-
 
 logger = logging.getLogger("reaper_mcp.template_tools")
 
@@ -153,7 +152,6 @@ def resolve_template(name: str, template_dir: Path) -> Path:
 def _all_track_guids() -> list[str]:
     count = int(RPR.CountTracks(0))
     return [RPR.GetTrackGUID(RPR.GetTrack(0, i)) for i in range(count)]
-
 
 
 def list_track_templates() -> dict:

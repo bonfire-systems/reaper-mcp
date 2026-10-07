@@ -1,10 +1,4 @@
-import logging
 from reaper_mcp.reaper import RPR, get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.track_tools")
-
 
 
 def create_track(*, name: str, track_type: str = "audio") -> dict:

@@ -1,17 +1,12 @@
 import os
-import logging
+
 from reaper_mcp.reaper import get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.mastering_tools")
 
 MASTERING_PRESETS = {
     "default": ["ReaEQ", "ReaComp", "ReaLimit"],
     "loud":    ["ReaEQ", "ReaComp", "ReaComp", "ReaLimit"],
     "gentle":  ["ReaEQ", "ReaComp", "ReaLimit"],
 }
-
 
 
 def add_master_fx(*, fx_name: str) -> dict:
@@ -106,9 +101,10 @@ def analyze_loudness() -> dict:
     Render the project to a temp file and measure integrated loudness (LUFS)
     and true peak (dBTP) using the ITU-R BS.1770 standard.
     """
-    import soundfile as sf
-    import pyloudnorm as pyln
     import numpy as np
+    import pyloudnorm as pyln
+    import soundfile as sf
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -134,8 +130,9 @@ def normalize_project(*, target_lufs: float = -14.0) -> dict:
     so the output hits the target LUFS level.
     Common targets: -14 LUFS (streaming), -16 LUFS (podcasts), -23 LUFS (broadcast).
     """
-    import soundfile as sf
     import pyloudnorm as pyln
+    import soundfile as sf
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()

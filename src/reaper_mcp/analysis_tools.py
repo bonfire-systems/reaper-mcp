@@ -1,10 +1,6 @@
 import os
-import logging
 
 import numpy as np
-
-
-logger = logging.getLogger("reaper_mcp.analysis_tools")
 
 
 def _band_rms_db(D: np.ndarray, freqs: np.ndarray, band: tuple[float, float]) -> float:
@@ -16,7 +12,6 @@ def _band_rms_db(D: np.ndarray, freqs: np.ndarray, band: tuple[float, float]) ->
     return float(10 * np.log10(power + 1e-12))
 
 
-
 def analyze_frequency_spectrum() -> dict:
     """
     Render the project and analyze frequency band levels.
@@ -25,6 +20,7 @@ def analyze_frequency_spectrum() -> dict:
     mids (500–2kHz), high_mids (2–4kHz), presence (4–8kHz), brilliance (8–20kHz).
     """
     import librosa
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -63,6 +59,7 @@ def detect_clipping() -> dict:
     Returns clipped sample count, peak level in dB, and whether clipping was found.
     """
     import soundfile as sf
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -96,6 +93,7 @@ def analyze_dynamics() -> dict:
     and a simplified DR score (average peak-to-RMS over 3-second blocks).
     """
     import soundfile as sf
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -139,6 +137,7 @@ def analyze_stereo_field() -> dict:
     Correlation near 1 = mono-like, near 0 = wide stereo, negative = phase issues.
     """
     import soundfile as sf
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file()
@@ -178,6 +177,7 @@ def analyze_transients() -> dict:
     Returns the count and timing of up to 100 transient onset events.
     """
     import librosa
+
     from reaper_mcp.render_tools import render_to_temp_file
 
     tmp = render_to_temp_file(sample_rate=44100)

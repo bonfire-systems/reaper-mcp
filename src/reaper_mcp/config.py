@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+
 from platformdirs import user_config_dir
 
 CONFIG_DIR = Path(user_config_dir("reaper-mcp"))

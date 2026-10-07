@@ -1,11 +1,6 @@
 import os
-import logging
+
 from reaper_mcp.reaper import RPR, get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.audio_tools")
-
 
 
 def import_audio_file(*, file_path: str, track_index: int, position: float = 0.0) -> dict:

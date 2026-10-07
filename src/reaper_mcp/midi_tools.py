@@ -1,7 +1,6 @@
 import logging
+
 from reaper_mcp.reaper import get_project
-
-
 
 logger = logging.getLogger("reaper_mcp.midi_tools")
 
@@ -54,7 +53,6 @@ def _parse_chord(chord_str: str):
     intervals = CHORD_TYPES.get(chord_type, CHORD_TYPES["maj"])
     root_num = NOTE_TO_NUMBER.get(root, 0)
     return intervals, root_num
-
 
 
 def create_midi_item(*, track_index: int, start_position: float, length: float) -> dict:

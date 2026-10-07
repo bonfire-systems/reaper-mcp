@@ -1,11 +1,7 @@
 import os
-import logging
 from pathlib import Path
+
 from reaper_mcp.reaper import RPR, get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.render_tools")
 
 # REAPER RENDER_FORMAT codes
 FORMAT_CODES = {
@@ -53,7 +49,6 @@ def render_to_temp_file(sample_rate: int = 48000) -> str:
     _set_render_settings(tmp, format="wav", sample_rate=sample_rate, bit_depth=24, channels=2, bounds=0)
     RPR.Main_OnCommand(41824, 0)
     return tmp
-
 
 
 def render_project(

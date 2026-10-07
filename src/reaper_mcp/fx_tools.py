@@ -1,10 +1,4 @@
-import logging
 from reaper_mcp.reaper import RPR, get_project
-
-
-
-logger = logging.getLogger("reaper_mcp.fx_tools")
-
 
 
 def add_fx(*, track_index: int, fx_name: str) -> dict:
