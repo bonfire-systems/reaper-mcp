@@ -127,7 +127,7 @@ def register_tools(mcp):
     @mcp.tool()
     def render_stems(
         output_directory: str,
-        track_indices: list = None,
+        track_indices: list | None = None,
         format: str = "wav",
         sample_rate: int = 48000,
         bit_depth: int = 24,
