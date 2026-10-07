@@ -1,9 +1,7 @@
 import logging
+from reaper_mcp.reaper import get_project
 
-import reapy
-from reapy import reascript_api as RPR
 
-from reaper_mcp.connection import get_project
 
 logger = logging.getLogger("reaper_mcp.midi_tools")
 
@@ -58,176 +56,166 @@ def _parse_chord(chord_str: str):
     return intervals, root_num
 
 
-def register_tools(mcp):
 
-    @mcp.tool()
-    def create_midi_item(track_index: int, start_position: float, length: float) -> dict:
-        """Create an empty MIDI item on a track. Returns item_id for use with add_midi_note."""
+def create_midi_item(*, track_index: int, start_position: float, length: float) -> dict:
+    """Create an empty MIDI item on a track. Returns item_id for use with add_midi_note."""
+    project = get_project()
+    track = project.tracks[track_index]
+    item = track.add_midi_item(start_position, start_position + length)
+    take = item.active_take
+    return {
+        "success": True,
+        "item_id": item.id,
+        "item_index": track.n_items - 1,
+        "position": item.position,
+        "length": item.length,
+        "track_index": track_index,
+    }
+
+def add_midi_note(
+    *,
+    track_index: int,
+    item_index: int,
+    pitch: int,
+    start: float,
+    length: float,
+    velocity: int = 100,
+    channel: int = 0,
+) -> dict:
+    """
+    Add a MIDI note to an existing MIDI item.
+    pitch: MIDI note number 0–127 (60 = middle C, 69 = A4).
+    start/length: seconds, relative to the item's start.
+    channel: MIDI channel 0–15 (use 9 for drums).
+    """
+    project = get_project()
+    track = project.tracks[track_index]
+    item = track.items[item_index]
+    take = item.active_take
+    if not take.is_midi:
+        return {"success": False, "error": "Item is not a MIDI item"}
+    take.add_note(
+        start=start,
+        end=start + length,
+        pitch=pitch,
+        velocity=velocity,
+        channel=channel,
+    )
+    return {
+        "success": True,
+        "track_index": track_index,
+        "item_index": item_index,
+        "pitch": pitch,
+        "start": start,
+        "length": length,
+        "velocity": velocity,
+        "channel": channel,
+    }
+
+def create_chord_progression(
+    *,
+    track_index: int,
+    chords: str,
+    start_position: float,
+    beats_per_chord: int = 4,
+) -> dict:
+    """
+    Create a chord progression on a track as a single MIDI item.
+    chords: comma-separated chord names, e.g. "C,G,Am,F" or "Cm7,Fm7,Bb7,Ebmaj7".
+    Supports: maj, min/m, dim, aug, maj7, min7/m7, dom7/7, dim7, hdim7, sus2, sus4.
+    All chords are voiced around middle C (MIDI 60).
+    """
+    project = get_project()
+    track = project.tracks[track_index]
+    chord_list = [c.strip() for c in chords.split(",")]
+    seconds_per_beat = 60.0 / project.bpm
+    chord_length = seconds_per_beat * beats_per_chord
+    total_length = chord_length * len(chord_list)
+
+    item = track.add_midi_item(start_position, start_position + total_length)
+    take = item.active_take
+    added_chords = []
+
+    for i, chord_str in enumerate(chord_list):
         try:
-            project = get_project()
-            track = project.tracks[track_index]
-            item = track.add_midi_item(start_position, start_position + length)
-            take = item.active_take
-            return {
-                "success": True,
-                "item_id": item.id,
-                "item_index": track.n_items - 1,
-                "position": item.position,
-                "length": item.length,
-                "track_index": track_index,
-            }
+            intervals, root_num = _parse_chord(chord_str)
+            chord_start = i * chord_length
+            for interval in intervals:
+                note_num = 60 + root_num + interval
+                take.add_note(
+                    start=chord_start,
+                    end=chord_start + chord_length * 0.95,
+                    pitch=note_num,
+                    velocity=80,
+                    channel=0,
+                )
+            added_chords.append({
+                "chord": chord_str,
+                "position": chord_start,
+                "length": chord_length,
+            })
         except Exception as e:
-            logger.error(f"create_midi_item failed: {e}")
-            return {"success": False, "error": str(e)}
+            logger.warning(f"Skipping chord '{chord_str}': {e}")
 
-    @mcp.tool()
-    def add_midi_note(
-        track_index: int,
-        item_index: int,
-        pitch: int,
-        start: float,
-        length: float,
-        velocity: int = 100,
-        channel: int = 0,
-    ) -> dict:
-        """
-        Add a MIDI note to an existing MIDI item.
-        pitch: MIDI note number 0–127 (60 = middle C, 69 = A4).
-        start/length: seconds, relative to the item's start.
-        channel: MIDI channel 0–15 (use 9 for drums).
-        """
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            item = track.items[item_index]
-            take = item.active_take
-            if not take.is_midi:
-                return {"success": False, "error": "Item is not a MIDI item"}
-            take.add_note(
-                start=start,
-                end=start + length,
-                pitch=pitch,
-                velocity=velocity,
-                channel=channel,
-            )
-            return {
-                "success": True,
-                "track_index": track_index,
-                "item_index": item_index,
-                "pitch": pitch,
-                "start": start,
-                "length": length,
-                "velocity": velocity,
-                "channel": channel,
-            }
-        except Exception as e:
-            logger.error(f"add_midi_note failed: {e}")
-            return {"success": False, "error": str(e)}
+    return {
+        "success": True,
+        "item_id": item.id,
+        "chords": added_chords,
+        "start_position": start_position,
+        "total_length": total_length,
+    }
 
-    @mcp.tool()
-    def create_chord_progression(
-        track_index: int,
-        chords: str,
-        start_position: float,
-        beats_per_chord: int = 4,
-    ) -> dict:
-        """
-        Create a chord progression on a track as a single MIDI item.
-        chords: comma-separated chord names, e.g. "C,G,Am,F" or "Cm7,Fm7,Bb7,Ebmaj7".
-        Supports: maj, min/m, dim, aug, maj7, min7/m7, dom7/7, dim7, hdim7, sus2, sus4.
-        All chords are voiced around middle C (MIDI 60).
-        """
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            chord_list = [c.strip() for c in chords.split(",")]
-            seconds_per_beat = 60.0 / project.bpm
-            chord_length = seconds_per_beat * beats_per_chord
-            total_length = chord_length * len(chord_list)
+def create_drum_pattern(
+    *,
+    track_index: int,
+    pattern: str,
+    start_position: float,
+    beats: int = 4,
+    repeats: int = 1,
+) -> dict:
+    """
+    Create a drum pattern on a track using a step-sequencer string.
+    Each character = one step. Characters: k=kick, s=snare, h=hihat(closed),
+    o=hihat(open), t=tom(low), m=tom(mid), f=tom(high), c=crash, r=ride, .=rest.
+    Example 4/4 rock beat (16 steps): "k...h...s...h..."
+    All drum notes are placed on MIDI channel 9 (GM standard).
+    """
+    project = get_project()
+    track = project.tracks[track_index]
+    seconds_per_beat = 60.0 / project.bpm
+    pattern_length = seconds_per_beat * beats
+    total_length = pattern_length * repeats
 
-            item = track.add_midi_item(start_position, start_position + total_length)
-            take = item.active_take
-            added_chords = []
+    item = track.add_midi_item(start_position, start_position + total_length)
+    take = item.active_take
+    time_per_step = pattern_length / len(pattern)
 
-            for i, chord_str in enumerate(chord_list):
-                try:
-                    intervals, root_num = _parse_chord(chord_str)
-                    chord_start = i * chord_length
-                    for interval in intervals:
-                        note_num = 60 + root_num + interval
-                        take.add_note(
-                            start=chord_start,
-                            end=chord_start + chord_length * 0.95,
-                            pitch=note_num,
-                            velocity=80,
-                            channel=0,
-                        )
-                    added_chords.append({
-                        "chord": chord_str,
-                        "position": chord_start,
-                        "length": chord_length,
-                    })
-                except Exception as e:
-                    logger.warning(f"Skipping chord '{chord_str}': {e}")
+    for repeat in range(repeats):
+        offset = repeat * pattern_length
+        for i, char in enumerate(pattern):
+            if char in DRUM_MAPPINGS:
+                note_start = offset + i * time_per_step
+                take.add_note(
+                    start=note_start,
+                    end=note_start + time_per_step * 0.5,
+                    pitch=DRUM_MAPPINGS[char],
+                    velocity=100,
+                    channel=9,
+                )
 
-            return {
-                "success": True,
-                "item_id": item.id,
-                "chords": added_chords,
-                "start_position": start_position,
-                "total_length": total_length,
-            }
-        except Exception as e:
-            logger.error(f"create_chord_progression failed: {e}")
-            return {"success": False, "error": str(e)}
+    return {
+        "success": True,
+        "item_id": item.id,
+        "pattern": pattern,
+        "repeats": repeats,
+        "start_position": start_position,
+        "total_length": total_length,
+    }
 
-    @mcp.tool()
-    def create_drum_pattern(
-        track_index: int,
-        pattern: str,
-        start_position: float,
-        beats: int = 4,
-        repeats: int = 1,
-    ) -> dict:
-        """
-        Create a drum pattern on a track using a step-sequencer string.
-        Each character = one step. Characters: k=kick, s=snare, h=hihat(closed),
-        o=hihat(open), t=tom(low), m=tom(mid), f=tom(high), c=crash, r=ride, .=rest.
-        Example 4/4 rock beat (16 steps): "k...h...s...h..."
-        All drum notes are placed on MIDI channel 9 (GM standard).
-        """
-        try:
-            project = get_project()
-            track = project.tracks[track_index]
-            seconds_per_beat = 60.0 / project.bpm
-            pattern_length = seconds_per_beat * beats
-            total_length = pattern_length * repeats
 
-            item = track.add_midi_item(start_position, start_position + total_length)
-            take = item.active_take
-            time_per_step = pattern_length / len(pattern)
-
-            for repeat in range(repeats):
-                offset = repeat * pattern_length
-                for i, char in enumerate(pattern):
-                    if char in DRUM_MAPPINGS:
-                        note_start = offset + i * time_per_step
-                        take.add_note(
-                            start=note_start,
-                            end=note_start + time_per_step * 0.5,
-                            pitch=DRUM_MAPPINGS[char],
-                            velocity=100,
-                            channel=9,
-                        )
-
-            return {
-                "success": True,
-                "item_id": item.id,
-                "pattern": pattern,
-                "repeats": repeats,
-                "start_position": start_position,
-                "total_length": total_length,
-            }
-        except Exception as e:
-            logger.error(f"create_drum_pattern failed: {e}")
-            return {"success": False, "error": str(e)}
+TOOLS = (
+    create_midi_item,
+    add_midi_note,
+    create_chord_progression,
+    create_drum_pattern,
+)

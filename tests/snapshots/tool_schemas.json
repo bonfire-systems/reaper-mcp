@@ -1,6 +1,6 @@
 {
   "add_fx": {
-    "description": "\n        Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).\n        Use the exact plugin name as shown in REAPER's FX browser.\n        Built-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,\n        ReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.\n        ",
+    "description": "Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).\nUse the exact plugin name as shown in REAPER's FX browser.\nBuilt-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,\nReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.",
     "input_schema": {
       "properties": {
         "fx_name": {
@@ -37,7 +37,7 @@
     }
   },
   "add_midi_note": {
-    "description": "\n        Add a MIDI note to an existing MIDI item.\n        pitch: MIDI note number 0\u2013127 (60 = middle C, 69 = A4).\n        start/length: seconds, relative to the item's start.\n        channel: MIDI channel 0\u201315 (use 9 for drums).\n        ",
+    "description": "Add a MIDI note to an existing MIDI item.\npitch: MIDI note number 0\u2013127 (60 = middle C, 69 = A4).\nstart/length: seconds, relative to the item's start.\nchannel: MIDI channel 0\u201315 (use 9 for drums).",
     "input_schema": {
       "properties": {
         "channel": {
@@ -83,7 +83,7 @@
     }
   },
   "add_pan_automation": {
-    "description": "\n        Add a pan automation point on a track.\n        The pan envelope must be visible in REAPER.\n        pan: -1.0 (full left) to 1.0 (full right).\n        ",
+    "description": "Add a pan automation point on a track.\nThe pan envelope must be visible in REAPER.\npan: -1.0 (full left) to 1.0 (full right).",
     "input_schema": {
       "properties": {
         "pan": {
@@ -109,7 +109,7 @@
     }
   },
   "add_volume_automation": {
-    "description": "\n        Add a volume automation point on a track.\n        The volume envelope must be visible in REAPER (right-click track > Show envelope).\n        position: time in seconds. value_db: volume level in dB.\n        ",
+    "description": "Add a volume automation point on a track.\nThe volume envelope must be visible in REAPER (right-click track > Show envelope).\nposition: time in seconds. value_db: volume level in dB.",
     "input_schema": {
       "properties": {
         "position": {
@@ -187,7 +187,7 @@
     }
   },
   "analyze_dynamics": {
-    "description": "\n        Render the project and measure dynamic range: RMS, peak, crest factor,\n        and a simplified DR score (average peak-to-RMS over 3-second blocks).\n        ",
+    "description": "Render the project and measure dynamic range: RMS, peak, crest factor,\nand a simplified DR score (average peak-to-RMS over 3-second blocks).",
     "input_schema": {
       "properties": {},
       "title": "analyze_dynamicsArguments",
@@ -195,7 +195,7 @@
     }
   },
   "analyze_frequency_spectrum": {
-    "description": "\n        Render the project and analyze frequency band levels.\n        Returns RMS level in dB for seven bands:\n        sub_bass (20\u201360Hz), bass (60\u2013250Hz), low_mids (250\u2013500Hz),\n        mids (500\u20132kHz), high_mids (2\u20134kHz), presence (4\u20138kHz), brilliance (8\u201320kHz).\n        ",
+    "description": "Render the project and analyze frequency band levels.\nReturns RMS level in dB for seven bands:\nsub_bass (20\u201360Hz), bass (60\u2013250Hz), low_mids (250\u2013500Hz),\nmids (500\u20132kHz), high_mids (2\u20134kHz), presence (4\u20138kHz), brilliance (8\u201320kHz).",
     "input_schema": {
       "properties": {},
       "title": "analyze_frequency_spectrumArguments",
@@ -203,7 +203,7 @@
     }
   },
   "analyze_loudness": {
-    "description": "\n        Render the project to a temp file and measure integrated loudness (LUFS)\n        and true peak (dBTP) using the ITU-R BS.1770 standard.\n        ",
+    "description": "Render the project to a temp file and measure integrated loudness (LUFS)\nand true peak (dBTP) using the ITU-R BS.1770 standard.",
     "input_schema": {
       "properties": {},
       "title": "analyze_loudnessArguments",
@@ -211,7 +211,7 @@
     }
   },
   "analyze_stereo_field": {
-    "description": "\n        Render the project and analyze stereo width and mono compatibility.\n        Returns mid/side balance, stereo width ratio, and L/R correlation.\n        Correlation near 1 = mono-like, near 0 = wide stereo, negative = phase issues.\n        ",
+    "description": "Render the project and analyze stereo width and mono compatibility.\nReturns mid/side balance, stereo width ratio, and L/R correlation.\nCorrelation near 1 = mono-like, near 0 = wide stereo, negative = phase issues.",
     "input_schema": {
       "properties": {},
       "title": "analyze_stereo_fieldArguments",
@@ -219,7 +219,7 @@
     }
   },
   "analyze_transients": {
-    "description": "\n        Render the project and detect transient events (note attacks, drum hits, etc.).\n        Returns the count and timing of up to 100 transient onset events.\n        ",
+    "description": "Render the project and detect transient events (note attacks, drum hits, etc.).\nReturns the count and timing of up to 100 transient onset events.",
     "input_schema": {
       "properties": {},
       "title": "analyze_transientsArguments",
@@ -227,7 +227,7 @@
     }
   },
   "apply_limiter": {
-    "description": "\n        Add ReaLimit to the master track.\n        After adding, use set_master_fx_parameter with the parameter indices from\n        get_fx_parameters to set the threshold and release values.\n        ",
+    "description": "Add ReaLimit to the master track.\nAfter adding, use set_master_fx_parameter with the parameter indices from\nget_fx_parameters to set the threshold and release values.",
     "input_schema": {
       "properties": {
         "release_ms": {
@@ -246,7 +246,7 @@
     }
   },
   "apply_mastering_chain": {
-    "description": "\n        Add a standard mastering FX chain to the master track.\n        Presets: default (EQ > Comp > Limiter), loud (EQ > Comp x2 > Limiter),\n        gentle (EQ > light Comp > Limiter).\n        After applying, use set_master_fx_parameter to dial in specific settings.\n        Use list_master_fx + get_fx_parameters to discover parameter indices.\n        ",
+    "description": "Add a standard mastering FX chain to the master track.\nPresets: default (EQ > Comp > Limiter), loud (EQ > Comp x2 > Limiter),\ngentle (EQ > light Comp > Limiter).\nAfter applying, use set_master_fx_parameter to dial in specific settings.\nUse list_master_fx + get_fx_parameters to discover parameter indices.",
     "input_schema": {
       "properties": {
         "preset": {
@@ -286,7 +286,7 @@
     }
   },
   "create_bus": {
-    "description": "\n        Create a new bus track and route the given tracks to it via sends.\n        track_indices: list of track indices to feed into the bus.\n        ",
+    "description": "Create a new bus track and route the given tracks to it via sends.\ntrack_indices: list of track indices to feed into the bus.",
     "input_schema": {
       "properties": {
         "name": {
@@ -308,7 +308,7 @@
     }
   },
   "create_chord_progression": {
-    "description": "\n        Create a chord progression on a track as a single MIDI item.\n        chords: comma-separated chord names, e.g. \"C,G,Am,F\" or \"Cm7,Fm7,Bb7,Ebmaj7\".\n        Supports: maj, min/m, dim, aug, maj7, min7/m7, dom7/7, dim7, hdim7, sus2, sus4.\n        All chords are voiced around middle C (MIDI 60).\n        ",
+    "description": "Create a chord progression on a track as a single MIDI item.\nchords: comma-separated chord names, e.g. \"C,G,Am,F\" or \"Cm7,Fm7,Bb7,Ebmaj7\".\nSupports: maj, min/m, dim, aug, maj7, min7/m7, dom7/7, dim7, hdim7, sus2, sus4.\nAll chords are voiced around middle C (MIDI 60).",
     "input_schema": {
       "properties": {
         "beats_per_chord": {
@@ -339,7 +339,7 @@
     }
   },
   "create_drum_pattern": {
-    "description": "\n        Create a drum pattern on a track using a step-sequencer string.\n        Each character = one step. Characters: k=kick, s=snare, h=hihat(closed),\n        o=hihat(open), t=tom(low), m=tom(mid), f=tom(high), c=crash, r=ride, .=rest.\n        Example 4/4 rock beat (16 steps): \"k...h...s...h...\"\n        All drum notes are placed on MIDI channel 9 (GM standard).\n        ",
+    "description": "Create a drum pattern on a track using a step-sequencer string.\nEach character = one step. Characters: k=kick, s=snare, h=hihat(closed),\no=hihat(open), t=tom(low), m=tom(mid), f=tom(high), c=crash, r=ride, .=rest.\nExample 4/4 rock beat (16 steps): \"k...h...s...h...\"\nAll drum notes are placed on MIDI channel 9 (GM standard).",
     "input_schema": {
       "properties": {
         "beats": {
@@ -451,7 +451,7 @@
     }
   },
   "create_track": {
-    "description": "\n        Create a new track at the end of the project.\n        track_type: audio, midi, instrument, folder\n        ",
+    "description": "Create a new track at the end of the project.\ntrack_type: audio, midi, instrument, folder",
     "input_schema": {
       "properties": {
         "name": {
@@ -488,7 +488,7 @@
     }
   },
   "detect_clipping": {
-    "description": "\n        Render the project and detect digital clipping (samples at or above 0 dBFS).\n        Returns clipped sample count, peak level in dB, and whether clipping was found.\n        ",
+    "description": "Render the project and detect digital clipping (samples at or above 0 dBFS).\nReturns clipped sample count, peak level in dB, and whether clipping was found.",
     "input_schema": {
       "properties": {},
       "title": "detect_clippingArguments",
@@ -496,7 +496,7 @@
     }
   },
   "edit_audio_item": {
-    "description": "\n        Trim an audio item and/or add fades. All values in seconds.\n        start_trim: seconds to remove from the beginning.\n        end_trim: seconds to remove from the end.\n        fade_in/fade_out: fade length in seconds.\n        ",
+    "description": "Trim an audio item and/or add fades. All values in seconds.\nstart_trim: seconds to remove from the beginning.\nend_trim: seconds to remove from the end.\nfade_in/fade_out: fade length in seconds.",
     "input_schema": {
       "properties": {
         "end_trim": {
@@ -582,7 +582,7 @@
     }
   },
   "import_audio_file": {
-    "description": "\n        Import an audio file onto a track at the given position (seconds).\n        Supports all formats REAPER can read: wav, aiff, mp3, flac, ogg, etc.\n        ",
+    "description": "Import an audio file onto a track at the given position (seconds).\nSupports all formats REAPER can read: wav, aiff, mp3, flac, ogg, etc.",
     "input_schema": {
       "properties": {
         "file_path": {
@@ -608,7 +608,7 @@
     }
   },
   "insert_track_template": {
-    "description": "\n        Insert a saved track template into the current project, exactly like REAPER's own\n        \"Insert track from template\": FX with their saved state, routing, folder structure,\n        envelopes and items are all preserved. Templates can contain several tracks.\n        template: a name or path from list_track_templates (\"Vocal Chain\", \"Vocals/Lead Vox\"),\n                  or an absolute path to a .RTrackTemplate file.\n        position: 0-based track index the template's first track should occupy. Existing\n                  tracks at that index and below are shifted down. Omit to append at the end.\n        The inserted tracks are left selected, matching REAPER's behaviour.\n        ",
+    "description": "Insert a saved track template into the current project, exactly like REAPER's own\n\"Insert track from template\": FX with their saved state, routing, folder structure,\nenvelopes and items are all preserved. Templates can contain several tracks.\ntemplate: a name or path from list_track_templates (\"Vocal Chain\", \"Vocals/Lead Vox\"),\n          or an absolute path to a .RTrackTemplate file.\nposition: 0-based track index the template's first track should occupy. Existing\n          tracks at that index and below are shifted down. Omit to append at the end.\nThe inserted tracks are left selected, matching REAPER's behaviour.",
     "input_schema": {
       "properties": {
         "position": {
@@ -676,7 +676,7 @@
     }
   },
   "list_track_templates": {
-    "description": "\n        List the track templates (.RTrackTemplate files) in REAPER's TrackTemplates folder,\n        including subfolders. Each entry has 'name' (file name without extension), 'path'\n        (relative to the TrackTemplates folder, e.g. \"Vocals/Lead Vox\"), the absolute 'file',\n        and the names of the tracks the template contains.\n        Pass either 'name' or 'path' to insert_track_template.\n        ",
+    "description": "List the track templates (.RTrackTemplate files) in REAPER's TrackTemplates folder,\nincluding subfolders. Each entry has 'name' (file name without extension), 'path'\n(relative to the TrackTemplates folder, e.g. \"Vocals/Lead Vox\"), the absolute 'file',\nand the names of the tracks the template contains.\nPass either 'name' or 'path' to insert_track_template.",
     "input_schema": {
       "properties": {},
       "title": "list_track_templatesArguments",
@@ -734,7 +734,7 @@
     }
   },
   "normalize_project": {
-    "description": "\n        Measure the project's integrated loudness, then adjust the master volume\n        so the output hits the target LUFS level.\n        Common targets: -14 LUFS (streaming), -16 LUFS (podcasts), -23 LUFS (broadcast).\n        ",
+    "description": "Measure the project's integrated loudness, then adjust the master volume\nso the output hits the target LUFS level.\nCommon targets: -14 LUFS (streaming), -16 LUFS (podcasts), -23 LUFS (broadcast).",
     "input_schema": {
       "properties": {
         "target_lufs": {
@@ -819,7 +819,7 @@
     }
   },
   "render_project": {
-    "description": "\n        Render the entire project to a file.\n        format: wav, flac, mp3 (requires LAME), ogg.\n        sample_rate: e.g. 44100, 48000, 96000.\n        bit_depth: 16, 24, or 32 (WAV only; ignored for mp3/ogg/flac).\n        channels: 1 (mono) or 2 (stereo).\n        ",
+    "description": "Render the entire project to a file.\nformat: wav, flac, mp3 (requires LAME), ogg.\nsample_rate: e.g. 44100, 48000, 96000.\nbit_depth: 16, 24, or 32 (WAV only; ignored for mp3/ogg/flac).\nchannels: 1 (mono) or 2 (stereo).",
     "input_schema": {
       "properties": {
         "bit_depth": {
@@ -855,7 +855,7 @@
     }
   },
   "render_stems": {
-    "description": "\n        Render each track as a separate stem file by soloing each track individually.\n        track_indices: list of track indices, or null to render all tracks.\n        Files are named after the track names in the output directory.\n        ",
+    "description": "Render each track as a separate stem file by soloing each track individually.\ntrack_indices: list of track indices, or null to render all tracks.\nFiles are named after the track names in the output directory.",
     "input_schema": {
       "properties": {
         "bit_depth": {
@@ -968,7 +968,7 @@
     }
   },
   "set_fx_parameter": {
-    "description": "\n        Set a normalized parameter value (0.0\u20131.0) on an FX plugin.\n        Use get_fx_parameters to discover available parameters and their indices.\n        ",
+    "description": "Set a normalized parameter value (0.0\u20131.0) on an FX plugin.\nUse get_fx_parameters to discover available parameters and their indices.",
     "input_schema": {
       "properties": {
         "fx_index": {
