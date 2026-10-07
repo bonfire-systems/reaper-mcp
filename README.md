@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server that enables AI agents to control REAPER D
 
 ## Requirements
 
-- [REAPER](https://www.reaper.fm/) DAW installed and running
+- [REAPER](https://www.reaper.fm/) 7 or later, installed and running
 - Python 3.10+
 - REAPER's distant API enabled (see [Setup](#setting-up-reaper))
 
@@ -98,6 +98,12 @@ Inserts saved `.RTrackTemplate` files from REAPER's TrackTemplates folder (subfo
 
 ### Analysis
 `analyze_loudness` `analyze_dynamics` `analyze_frequency_spectrum` `analyze_stereo_field` `analyze_transients` `detect_clipping`
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: one concern per pull request,
+tested against a real REAPER (say which version), and an issue first for new
+tools.
 
 ## License
 
