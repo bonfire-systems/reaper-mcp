@@ -1,0 +1,1245 @@
+{
+  "add_fx": {
+    "description": "\n        Add an FX plugin to a track. Works for both instruments (VSTi) and effects (VST/AU).\n        Use the exact plugin name as shown in REAPER's FX browser.\n        Built-in Cockos plugins: ReaEQ, ReaComp, ReaDelay, ReaVerb, ReaLimit, ReaSynth,\n        ReaSamplOmatic5000, ReaTune, ReaGate, ReaFIR, ReaXcomp.\n        ",
+    "input_schema": {
+      "properties": {
+        "fx_name": {
+          "title": "Fx Name",
+          "type": "string"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_name"
+      ],
+      "title": "add_fxArguments",
+      "type": "object"
+    }
+  },
+  "add_master_fx": {
+    "description": "Add an FX plugin to the master track.",
+    "input_schema": {
+      "properties": {
+        "fx_name": {
+          "title": "Fx Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fx_name"
+      ],
+      "title": "add_master_fxArguments",
+      "type": "object"
+    }
+  },
+  "add_midi_note": {
+    "description": "\n        Add a MIDI note to an existing MIDI item.\n        pitch: MIDI note number 0\u2013127 (60 = middle C, 69 = A4).\n        start/length: seconds, relative to the item's start.\n        channel: MIDI channel 0\u201315 (use 9 for drums).\n        ",
+    "input_schema": {
+      "properties": {
+        "channel": {
+          "default": 0,
+          "title": "Channel",
+          "type": "integer"
+        },
+        "item_index": {
+          "title": "Item Index",
+          "type": "integer"
+        },
+        "length": {
+          "title": "Length",
+          "type": "number"
+        },
+        "pitch": {
+          "title": "Pitch",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        },
+        "velocity": {
+          "default": 100,
+          "title": "Velocity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "item_index",
+        "pitch",
+        "start",
+        "length"
+      ],
+      "title": "add_midi_noteArguments",
+      "type": "object"
+    }
+  },
+  "add_pan_automation": {
+    "description": "\n        Add a pan automation point on a track.\n        The pan envelope must be visible in REAPER.\n        pan: -1.0 (full left) to 1.0 (full right).\n        ",
+    "input_schema": {
+      "properties": {
+        "pan": {
+          "title": "Pan",
+          "type": "number"
+        },
+        "position": {
+          "title": "Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "position",
+        "pan"
+      ],
+      "title": "add_pan_automationArguments",
+      "type": "object"
+    }
+  },
+  "add_volume_automation": {
+    "description": "\n        Add a volume automation point on a track.\n        The volume envelope must be visible in REAPER (right-click track > Show envelope).\n        position: time in seconds. value_db: volume level in dB.\n        ",
+    "input_schema": {
+      "properties": {
+        "position": {
+          "title": "Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        },
+        "value_db": {
+          "title": "Value Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "track_index",
+        "position",
+        "value_db"
+      ],
+      "title": "add_volume_automationArguments",
+      "type": "object"
+    }
+  },
+  "adjust_pitch": {
+    "description": "Adjust the pitch of an audio item by semitones (can be fractional).",
+    "input_schema": {
+      "properties": {
+        "item_index": {
+          "title": "Item Index",
+          "type": "integer"
+        },
+        "semitones": {
+          "title": "Semitones",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "item_index",
+        "semitones"
+      ],
+      "title": "adjust_pitchArguments",
+      "type": "object"
+    }
+  },
+  "adjust_playback_rate": {
+    "description": "Adjust playback rate of an audio item. 1.0 = normal speed, 0.5 = half speed.",
+    "input_schema": {
+      "properties": {
+        "item_index": {
+          "title": "Item Index",
+          "type": "integer"
+        },
+        "rate": {
+          "title": "Rate",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "item_index",
+        "rate"
+      ],
+      "title": "adjust_playback_rateArguments",
+      "type": "object"
+    }
+  },
+  "analyze_dynamics": {
+    "description": "\n        Render the project and measure dynamic range: RMS, peak, crest factor,\n        and a simplified DR score (average peak-to-RMS over 3-second blocks).\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "analyze_dynamicsArguments",
+      "type": "object"
+    }
+  },
+  "analyze_frequency_spectrum": {
+    "description": "\n        Render the project and analyze frequency band levels.\n        Returns RMS level in dB for seven bands:\n        sub_bass (20\u201360Hz), bass (60\u2013250Hz), low_mids (250\u2013500Hz),\n        mids (500\u20132kHz), high_mids (2\u20134kHz), presence (4\u20138kHz), brilliance (8\u201320kHz).\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "analyze_frequency_spectrumArguments",
+      "type": "object"
+    }
+  },
+  "analyze_loudness": {
+    "description": "\n        Render the project to a temp file and measure integrated loudness (LUFS)\n        and true peak (dBTP) using the ITU-R BS.1770 standard.\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "analyze_loudnessArguments",
+      "type": "object"
+    }
+  },
+  "analyze_stereo_field": {
+    "description": "\n        Render the project and analyze stereo width and mono compatibility.\n        Returns mid/side balance, stereo width ratio, and L/R correlation.\n        Correlation near 1 = mono-like, near 0 = wide stereo, negative = phase issues.\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "analyze_stereo_fieldArguments",
+      "type": "object"
+    }
+  },
+  "analyze_transients": {
+    "description": "\n        Render the project and detect transient events (note attacks, drum hits, etc.).\n        Returns the count and timing of up to 100 transient onset events.\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "analyze_transientsArguments",
+      "type": "object"
+    }
+  },
+  "apply_limiter": {
+    "description": "\n        Add ReaLimit to the master track.\n        After adding, use set_master_fx_parameter with the parameter indices from\n        get_fx_parameters to set the threshold and release values.\n        ",
+    "input_schema": {
+      "properties": {
+        "release_ms": {
+          "default": 50.0,
+          "title": "Release Ms",
+          "type": "number"
+        },
+        "threshold_db": {
+          "default": -0.5,
+          "title": "Threshold Db",
+          "type": "number"
+        }
+      },
+      "title": "apply_limiterArguments",
+      "type": "object"
+    }
+  },
+  "apply_mastering_chain": {
+    "description": "\n        Add a standard mastering FX chain to the master track.\n        Presets: default (EQ > Comp > Limiter), loud (EQ > Comp x2 > Limiter),\n        gentle (EQ > light Comp > Limiter).\n        After applying, use set_master_fx_parameter to dial in specific settings.\n        Use list_master_fx + get_fx_parameters to discover parameter indices.\n        ",
+    "input_schema": {
+      "properties": {
+        "preset": {
+          "default": "default",
+          "title": "Preset",
+          "type": "string"
+        }
+      },
+      "title": "apply_mastering_chainArguments",
+      "type": "object"
+    }
+  },
+  "bypass_fx": {
+    "description": "Enable or bypass (disable) an FX plugin on a track.",
+    "input_schema": {
+      "properties": {
+        "bypassed": {
+          "title": "Bypassed",
+          "type": "boolean"
+        },
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index",
+        "bypassed"
+      ],
+      "title": "bypass_fxArguments",
+      "type": "object"
+    }
+  },
+  "create_bus": {
+    "description": "\n        Create a new bus track and route the given tracks to it via sends.\n        track_indices: list of track indices to feed into the bus.\n        ",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "track_indices": {
+          "items": {},
+          "title": "Track Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "track_indices"
+      ],
+      "title": "create_busArguments",
+      "type": "object"
+    }
+  },
+  "create_chord_progression": {
+    "description": "\n        Create a chord progression on a track as a single MIDI item.\n        chords: comma-separated chord names, e.g. \"C,G,Am,F\" or \"Cm7,Fm7,Bb7,Ebmaj7\".\n        Supports: maj, min/m, dim, aug, maj7, min7/m7, dom7/7, dim7, hdim7, sus2, sus4.\n        All chords are voiced around middle C (MIDI 60).\n        ",
+    "input_schema": {
+      "properties": {
+        "beats_per_chord": {
+          "default": 4,
+          "title": "Beats Per Chord",
+          "type": "integer"
+        },
+        "chords": {
+          "title": "Chords",
+          "type": "string"
+        },
+        "start_position": {
+          "title": "Start Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "chords",
+        "start_position"
+      ],
+      "title": "create_chord_progressionArguments",
+      "type": "object"
+    }
+  },
+  "create_drum_pattern": {
+    "description": "\n        Create a drum pattern on a track using a step-sequencer string.\n        Each character = one step. Characters: k=kick, s=snare, h=hihat(closed),\n        o=hihat(open), t=tom(low), m=tom(mid), f=tom(high), c=crash, r=ride, .=rest.\n        Example 4/4 rock beat (16 steps): \"k...h...s...h...\"\n        All drum notes are placed on MIDI channel 9 (GM standard).\n        ",
+    "input_schema": {
+      "properties": {
+        "beats": {
+          "default": 4,
+          "title": "Beats",
+          "type": "integer"
+        },
+        "pattern": {
+          "title": "Pattern",
+          "type": "string"
+        },
+        "repeats": {
+          "default": 1,
+          "title": "Repeats",
+          "type": "integer"
+        },
+        "start_position": {
+          "title": "Start Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "pattern",
+        "start_position"
+      ],
+      "title": "create_drum_patternArguments",
+      "type": "object"
+    }
+  },
+  "create_midi_item": {
+    "description": "Create an empty MIDI item on a track. Returns item_id for use with add_midi_note.",
+    "input_schema": {
+      "properties": {
+        "length": {
+          "title": "Length",
+          "type": "number"
+        },
+        "start_position": {
+          "title": "Start Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "start_position",
+        "length"
+      ],
+      "title": "create_midi_itemArguments",
+      "type": "object"
+    }
+  },
+  "create_project": {
+    "description": "Create a new REAPER project with the given tempo and time signature.",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "tempo": {
+          "default": 120.0,
+          "title": "Tempo",
+          "type": "number"
+        },
+        "time_signature": {
+          "default": "4/4",
+          "title": "Time Signature",
+          "type": "string"
+        }
+      },
+      "title": "create_projectArguments",
+      "type": "object"
+    }
+  },
+  "create_send": {
+    "description": "Create an aux send from one track to another.",
+    "input_schema": {
+      "properties": {
+        "dest_track_index": {
+          "title": "Dest Track Index",
+          "type": "integer"
+        },
+        "source_track_index": {
+          "title": "Source Track Index",
+          "type": "integer"
+        },
+        "volume_db": {
+          "default": 0.0,
+          "title": "Volume Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "source_track_index",
+        "dest_track_index"
+      ],
+      "title": "create_sendArguments",
+      "type": "object"
+    }
+  },
+  "create_track": {
+    "description": "\n        Create a new track at the end of the project.\n        track_type: audio, midi, instrument, folder\n        ",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "track_type": {
+          "default": "audio",
+          "title": "Track Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "create_trackArguments",
+      "type": "object"
+    }
+  },
+  "delete_track": {
+    "description": "Delete a track by its index.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index"
+      ],
+      "title": "delete_trackArguments",
+      "type": "object"
+    }
+  },
+  "detect_clipping": {
+    "description": "\n        Render the project and detect digital clipping (samples at or above 0 dBFS).\n        Returns clipped sample count, peak level in dB, and whether clipping was found.\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "detect_clippingArguments",
+      "type": "object"
+    }
+  },
+  "edit_audio_item": {
+    "description": "\n        Trim an audio item and/or add fades. All values in seconds.\n        start_trim: seconds to remove from the beginning.\n        end_trim: seconds to remove from the end.\n        fade_in/fade_out: fade length in seconds.\n        ",
+    "input_schema": {
+      "properties": {
+        "end_trim": {
+          "default": 0.0,
+          "title": "End Trim",
+          "type": "number"
+        },
+        "fade_in": {
+          "default": 0.0,
+          "title": "Fade In",
+          "type": "number"
+        },
+        "fade_out": {
+          "default": 0.0,
+          "title": "Fade Out",
+          "type": "number"
+        },
+        "item_index": {
+          "title": "Item Index",
+          "type": "integer"
+        },
+        "start_trim": {
+          "default": 0.0,
+          "title": "Start Trim",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "item_index"
+      ],
+      "title": "edit_audio_itemArguments",
+      "type": "object"
+    }
+  },
+  "get_fx_parameters": {
+    "description": "Get all parameters for an FX plugin, including names, indices, and current values.",
+    "input_schema": {
+      "properties": {
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index"
+      ],
+      "title": "get_fx_parametersArguments",
+      "type": "object"
+    }
+  },
+  "get_project_info": {
+    "description": "Get information about the current project: name, path, tempo, tracks, length.",
+    "input_schema": {
+      "properties": {},
+      "title": "get_project_infoArguments",
+      "type": "object"
+    }
+  },
+  "get_track_info": {
+    "description": "Get detailed information about a track including FX and items.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index"
+      ],
+      "title": "get_track_infoArguments",
+      "type": "object"
+    }
+  },
+  "import_audio_file": {
+    "description": "\n        Import an audio file onto a track at the given position (seconds).\n        Supports all formats REAPER can read: wav, aiff, mp3, flac, ogg, etc.\n        ",
+    "input_schema": {
+      "properties": {
+        "file_path": {
+          "title": "File Path",
+          "type": "string"
+        },
+        "position": {
+          "default": 0.0,
+          "title": "Position",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file_path",
+        "track_index"
+      ],
+      "title": "import_audio_fileArguments",
+      "type": "object"
+    }
+  },
+  "insert_track_template": {
+    "description": "\n        Insert a saved track template into the current project, exactly like REAPER's own\n        \"Insert track from template\": FX with their saved state, routing, folder structure,\n        envelopes and items are all preserved. Templates can contain several tracks.\n        template: a name or path from list_track_templates (\"Vocal Chain\", \"Vocals/Lead Vox\"),\n                  or an absolute path to a .RTrackTemplate file.\n        position: 0-based track index the template's first track should occupy. Existing\n                  tracks at that index and below are shifted down. Omit to append at the end.\n        The inserted tracks are left selected, matching REAPER's behaviour.\n        ",
+    "input_schema": {
+      "properties": {
+        "position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "template": {
+          "title": "Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template"
+      ],
+      "title": "insert_track_templateArguments",
+      "type": "object"
+    }
+  },
+  "list_master_fx": {
+    "description": "List all FX plugins on the master track.",
+    "input_schema": {
+      "properties": {},
+      "title": "list_master_fxArguments",
+      "type": "object"
+    }
+  },
+  "list_sends": {
+    "description": "List all sends from a track.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index"
+      ],
+      "title": "list_sendsArguments",
+      "type": "object"
+    }
+  },
+  "list_track_fx": {
+    "description": "List all FX plugins on a track.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index"
+      ],
+      "title": "list_track_fxArguments",
+      "type": "object"
+    }
+  },
+  "list_track_templates": {
+    "description": "\n        List the track templates (.RTrackTemplate files) in REAPER's TrackTemplates folder,\n        including subfolders. Each entry has 'name' (file name without extension), 'path'\n        (relative to the TrackTemplates folder, e.g. \"Vocals/Lead Vox\"), the absolute 'file',\n        and the names of the tracks the template contains.\n        Pass either 'name' or 'path' to insert_track_template.\n        ",
+    "input_schema": {
+      "properties": {},
+      "title": "list_track_templatesArguments",
+      "type": "object"
+    }
+  },
+  "list_tracks": {
+    "description": "List all tracks in the current project with their basic parameters.",
+    "input_schema": {
+      "properties": {},
+      "title": "list_tracksArguments",
+      "type": "object"
+    }
+  },
+  "load_fx_preset": {
+    "description": "Load a saved preset by name for an FX plugin.",
+    "input_schema": {
+      "properties": {
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "preset_name": {
+          "title": "Preset Name",
+          "type": "string"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index",
+        "preset_name"
+      ],
+      "title": "load_fx_presetArguments",
+      "type": "object"
+    }
+  },
+  "load_project": {
+    "description": "Load a REAPER project (.rpp) from the given file path.",
+    "input_schema": {
+      "properties": {
+        "project_path": {
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_path"
+      ],
+      "title": "load_projectArguments",
+      "type": "object"
+    }
+  },
+  "normalize_project": {
+    "description": "\n        Measure the project's integrated loudness, then adjust the master volume\n        so the output hits the target LUFS level.\n        Common targets: -14 LUFS (streaming), -16 LUFS (podcasts), -23 LUFS (broadcast).\n        ",
+    "input_schema": {
+      "properties": {
+        "target_lufs": {
+          "default": -14.0,
+          "title": "Target Lufs",
+          "type": "number"
+        }
+      },
+      "title": "normalize_projectArguments",
+      "type": "object"
+    }
+  },
+  "play_project": {
+    "description": "Start project playback from the current cursor position.",
+    "input_schema": {
+      "properties": {},
+      "title": "play_projectArguments",
+      "type": "object"
+    }
+  },
+  "remove_fx": {
+    "description": "Remove an FX plugin from a track by its index.",
+    "input_schema": {
+      "properties": {
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index"
+      ],
+      "title": "remove_fxArguments",
+      "type": "object"
+    }
+  },
+  "remove_send": {
+    "description": "Remove a send from a track by its index.",
+    "input_schema": {
+      "properties": {
+        "send_index": {
+          "title": "Send Index",
+          "type": "integer"
+        },
+        "source_track_index": {
+          "title": "Source Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_track_index",
+        "send_index"
+      ],
+      "title": "remove_sendArguments",
+      "type": "object"
+    }
+  },
+  "rename_track": {
+    "description": "Rename a track.",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "name"
+      ],
+      "title": "rename_trackArguments",
+      "type": "object"
+    }
+  },
+  "render_project": {
+    "description": "\n        Render the entire project to a file.\n        format: wav, flac, mp3 (requires LAME), ogg.\n        sample_rate: e.g. 44100, 48000, 96000.\n        bit_depth: 16, 24, or 32 (WAV only; ignored for mp3/ogg/flac).\n        channels: 1 (mono) or 2 (stereo).\n        ",
+    "input_schema": {
+      "properties": {
+        "bit_depth": {
+          "default": 24,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "channels": {
+          "default": 2,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "format": {
+          "default": "wav",
+          "title": "Format",
+          "type": "string"
+        },
+        "output_path": {
+          "title": "Output Path",
+          "type": "string"
+        },
+        "sample_rate": {
+          "default": 48000,
+          "title": "Sample Rate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "output_path"
+      ],
+      "title": "render_projectArguments",
+      "type": "object"
+    }
+  },
+  "render_stems": {
+    "description": "\n        Render each track as a separate stem file by soloing each track individually.\n        track_indices: list of track indices, or null to render all tracks.\n        Files are named after the track names in the output directory.\n        ",
+    "input_schema": {
+      "properties": {
+        "bit_depth": {
+          "default": 24,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "format": {
+          "default": "wav",
+          "title": "Format",
+          "type": "string"
+        },
+        "output_directory": {
+          "title": "Output Directory",
+          "type": "string"
+        },
+        "sample_rate": {
+          "default": 48000,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "track_indices": {
+          "default": null,
+          "items": {},
+          "title": "Track Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "output_directory"
+      ],
+      "title": "render_stemsArguments",
+      "type": "object"
+    }
+  },
+  "render_time_selection": {
+    "description": "Render a specific time range of the project to a file.",
+    "input_schema": {
+      "properties": {
+        "bit_depth": {
+          "default": 24,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "channels": {
+          "default": 2,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "number"
+        },
+        "format": {
+          "default": "wav",
+          "title": "Format",
+          "type": "string"
+        },
+        "output_path": {
+          "title": "Output Path",
+          "type": "string"
+        },
+        "sample_rate": {
+          "default": 48000,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "output_path",
+        "start",
+        "end"
+      ],
+      "title": "render_time_selectionArguments",
+      "type": "object"
+    }
+  },
+  "save_project": {
+    "description": "Save the current project. If no path is given, saves to ~/Documents/REAPER Projects.",
+    "input_schema": {
+      "properties": {
+        "project_path": {
+          "default": "",
+          "title": "Project Path",
+          "type": "string"
+        }
+      },
+      "title": "save_projectArguments",
+      "type": "object"
+    }
+  },
+  "set_cursor_position": {
+    "description": "Move the edit cursor to a position in seconds.",
+    "input_schema": {
+      "properties": {
+        "position": {
+          "title": "Position",
+          "type": "number"
+        }
+      },
+      "required": [
+        "position"
+      ],
+      "title": "set_cursor_positionArguments",
+      "type": "object"
+    }
+  },
+  "set_fx_parameter": {
+    "description": "\n        Set a normalized parameter value (0.0\u20131.0) on an FX plugin.\n        Use get_fx_parameters to discover available parameters and their indices.\n        ",
+    "input_schema": {
+      "properties": {
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "param_index": {
+          "title": "Param Index",
+          "type": "integer"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "track_index",
+        "fx_index",
+        "param_index",
+        "value"
+      ],
+      "title": "set_fx_parameterArguments",
+      "type": "object"
+    }
+  },
+  "set_master_fx_parameter": {
+    "description": "Set a normalized parameter (0.0\u20131.0) on a master track FX plugin.",
+    "input_schema": {
+      "properties": {
+        "fx_index": {
+          "title": "Fx Index",
+          "type": "integer"
+        },
+        "param_index": {
+          "title": "Param Index",
+          "type": "integer"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fx_index",
+        "param_index",
+        "value"
+      ],
+      "title": "set_master_fx_parameterArguments",
+      "type": "object"
+    }
+  },
+  "set_master_volume": {
+    "description": "Set the master track output volume in dB.",
+    "input_schema": {
+      "properties": {
+        "volume_db": {
+          "title": "Volume Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "volume_db"
+      ],
+      "title": "set_master_volumeArguments",
+      "type": "object"
+    }
+  },
+  "set_send_volume": {
+    "description": "Set the volume of a send in dB.",
+    "input_schema": {
+      "properties": {
+        "send_index": {
+          "title": "Send Index",
+          "type": "integer"
+        },
+        "source_track_index": {
+          "title": "Source Track Index",
+          "type": "integer"
+        },
+        "volume_db": {
+          "title": "Volume Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "source_track_index",
+        "send_index",
+        "volume_db"
+      ],
+      "title": "set_send_volumeArguments",
+      "type": "object"
+    }
+  },
+  "set_tempo": {
+    "description": "Set the project tempo in BPM.",
+    "input_schema": {
+      "properties": {
+        "bpm": {
+          "title": "Bpm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bpm"
+      ],
+      "title": "set_tempoArguments",
+      "type": "object"
+    }
+  },
+  "set_time_signature": {
+    "description": "Set the project time signature, e.g. 4/4, 3/4, 6/8.",
+    "input_schema": {
+      "properties": {
+        "denominator": {
+          "title": "Denominator",
+          "type": "integer"
+        },
+        "numerator": {
+          "title": "Numerator",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "title": "set_time_signatureArguments",
+      "type": "object"
+    }
+  },
+  "set_track_color": {
+    "description": "Set track color using RGB values (0\u2013255 each).",
+    "input_schema": {
+      "properties": {
+        "b": {
+          "title": "B",
+          "type": "integer"
+        },
+        "g": {
+          "title": "G",
+          "type": "integer"
+        },
+        "r": {
+          "title": "R",
+          "type": "integer"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "r",
+        "g",
+        "b"
+      ],
+      "title": "set_track_colorArguments",
+      "type": "object"
+    }
+  },
+  "set_track_mute": {
+    "description": "Mute or unmute a track.",
+    "input_schema": {
+      "properties": {
+        "muted": {
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "muted"
+      ],
+      "title": "set_track_muteArguments",
+      "type": "object"
+    }
+  },
+  "set_track_pan": {
+    "description": "Set track pan. -1.0 = full left, 0.0 = center, 1.0 = full right.",
+    "input_schema": {
+      "properties": {
+        "pan": {
+          "title": "Pan",
+          "type": "number"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "pan"
+      ],
+      "title": "set_track_panArguments",
+      "type": "object"
+    }
+  },
+  "set_track_solo": {
+    "description": "Solo or unsolo a track.",
+    "input_schema": {
+      "properties": {
+        "soloed": {
+          "title": "Soloed",
+          "type": "boolean"
+        },
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index",
+        "soloed"
+      ],
+      "title": "set_track_soloArguments",
+      "type": "object"
+    }
+  },
+  "set_track_volume": {
+    "description": "Set track volume in dB. Range: roughly -150 to +12 dB.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        },
+        "volume_db": {
+          "title": "Volume Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "track_index",
+        "volume_db"
+      ],
+      "title": "set_track_volumeArguments",
+      "type": "object"
+    }
+  },
+  "start_recording": {
+    "description": "Arm a track and start recording. Call stop_transport when done.",
+    "input_schema": {
+      "properties": {
+        "track_index": {
+          "title": "Track Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_index"
+      ],
+      "title": "start_recordingArguments",
+      "type": "object"
+    }
+  },
+  "stop_transport": {
+    "description": "Stop playback or recording.",
+    "input_schema": {
+      "properties": {},
+      "title": "stop_transportArguments",
+      "type": "object"
+    }
+  }
+}
