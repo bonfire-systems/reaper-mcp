@@ -24,7 +24,7 @@ import time
 import uuid
 from pathlib import Path
 
-from reaper_mcp.project_tools import _markers_and_regions
+from reaper_mcp.project_tools import markers_and_regions
 from reaper_mcp.reaper import RPR, get_project
 
 # "File: Render project, using the most recent render settings, auto-close
@@ -372,7 +372,7 @@ def render_regions(
     # The render settings must stay in place until REAPER is done with them,
     # which is why the call blocks: an async mode would need a job API.
     directory = str(Path(output_directory).expanduser().resolve())
-    regions = _markers_and_regions()[1]
+    regions = markers_and_regions()[1]
     if not regions:
         return {"success": False, "error": "no regions are defined in the current project"}
 
