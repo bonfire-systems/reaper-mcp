@@ -856,6 +856,47 @@
       "type": "object"
     }
   },
+  "render_regions": {
+    "description": "Render each region of the project to its own file, using the project's\nrender settings.\npattern: file name pattern; $region, $regionnumber, $project are available.\nselected_only: render only the regions selected in REAPER; with none\n    selected, REAPER renders all of them.\ndry_run: return the regions and the files REAPER would write, without rendering.\nFails without rendering if any output file already exists; never deletes files.\nBlocks until the render finishes, gives up after stall_timeout_seconds with\nnothing written, or timeout_seconds in total; status is \"complete\",\n\"stalled\" or \"timeout\".\nRegion \"index\" is the position among regions, as in get_project_info.",
+    "input_schema": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "output_directory": {
+          "title": "Output Directory",
+          "type": "string"
+        },
+        "pattern": {
+          "default": "$region",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "selected_only": {
+          "default": false,
+          "title": "Selected Only",
+          "type": "boolean"
+        },
+        "stall_timeout_seconds": {
+          "default": 120.0,
+          "title": "Stall Timeout Seconds",
+          "type": "number"
+        },
+        "timeout_seconds": {
+          "default": 3600.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "output_directory"
+      ],
+      "title": "render_regionsArguments",
+      "type": "object"
+    }
+  },
   "render_stems": {
     "description": "Render each track as a separate stem file by soloing each track individually.\ntrack_indices: list of track indices, or null to render all tracks.\nFiles are named after the track names in the output directory.",
     "input_schema": {

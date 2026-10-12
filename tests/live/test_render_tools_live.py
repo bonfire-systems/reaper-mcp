@@ -1,10 +1,13 @@
 """Rendering against a running REAPER: real files, read back and checked."""
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
 import soundfile as sf
+
+from tests.live.rpr import RPR
 
 pytestmark = pytest.mark.live
 
@@ -79,3 +82,70 @@ def test_render_stems_duplicate_names_get_unique_files(add_tone, call, tmp_path)
     paths = [stem["output_path"] for stem in result["stems"]]
     assert paths == [str(tmp_path / "Kick.wav"), str(tmp_path / "Kick_2.wav")]
     assert dominant_hz(paths[1]) == pytest.approx(330, abs=2)
+
+
+RENDER_SETTINGS = ("RENDER_FILE", "RENDER_PATTERN", "RENDER_FORMAT")
+
+
+def render_settings() -> tuple:
+    strings = []
+    for key in RENDER_SETTINGS:
+        result = RPR.GetSetProjectInfo_String(0, key, "", False)
+        assert isinstance(result, (tuple, list)), result
+        strings.append(result[3])
+    return (*strings, RPR.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", 0.0, False))
+
+
+def test_render_regions(add_tone, live_project, call, tmp_path):
+    add_tone("a", 440)
+    for start, end, name in [(0.0, 0.5, "intro"), (0.5, 1.5, "verse; take 2"), (1.5, 2.0, "outro")]:
+        live_project.add_region(start, end, name=name)
+    before = render_settings()
+    out = tmp_path / "regions"
+    expected = [str(out / f"{name}.wav") for name in ("intro", "verse; take 2", "outro")]
+
+    dry = call("render_regions", output_directory=str(out), dry_run=True)
+    assert dry["success"] is True, dry
+    assert dry["would_write"] == expected
+    assert [r["name"] for r in dry["regions"]] == ["intro", "verse; take 2", "outro"]
+    assert not out.exists()
+
+    result = call("render_regions", output_directory=str(out), stall_timeout_seconds=30.0)
+    assert result["success"] is True, result
+    assert [f["path"] for f in result["files"]] == expected
+    durations = [sf.info(path).duration for path in expected]
+    assert durations == [pytest.approx(d, abs=0.01) for d in (0.5, 1.0, 0.5)]
+
+    again = call("render_regions", output_directory=str(out))
+    assert again["success"] is False and again["already_exist"] == expected
+    assert sorted(p.name for p in out.iterdir()) == sorted(Path(e).name for e in expected)
+    assert render_settings() == before
+
+
+# Action 42679, "Regions: Select/unselect all regions for rendering". On 7.75 it
+# selects every region if any is unselected, else clears the selection, and a
+# region added afterwards starts unselected, which gives a partial selection.
+SELECT_ALL_REGIONS = 42679
+
+
+def test_render_regions_selected_only(add_tone, live_project, call, tmp_path):
+    add_tone("a", 440)
+    live_project.add_region(0.0, 0.5, name="intro")
+    live_project.add_region(0.5, 1.0, name="verse")
+    RPR.Main_OnCommand(SELECT_ALL_REGIONS, 0)
+    live_project.add_region(1.0, 1.5, name="outro")  # added after: not selected
+    before = render_settings()
+    result = call("render_regions", output_directory=str(tmp_path / "out"), selected_only=True)
+    assert result["success"] is True, result
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["intro.wav", "verse.wav"]
+    assert render_settings() == before
+
+
+def test_render_regions_selected_only_with_none_selected(add_tone, live_project, call, tmp_path):
+    add_tone("a", 440)
+    live_project.add_region(0.0, 0.5, name="intro")
+    live_project.add_region(0.5, 1.0, name="verse")
+    result = call("render_regions", output_directory=str(tmp_path / "out"), selected_only=True)
+    assert result["success"] is True, result
+    # With no region selected, REAPER renders all of them.
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["intro.wav", "verse.wav"]

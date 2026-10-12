@@ -7,20 +7,24 @@ How REAPER takes render settings (verified on REAPER 7.82):
 - RENDER_FORMAT is a base64 sink configuration, set as a string. A bare
   four-character type ("evaw", "calf", ...) selects that format's defaults;
   WAV's defaults are 32-bit float, so WAV always carries its bit depth.
-- RENDER_BOUNDSFLAG: 1 = entire project, 2 = time selection (0 is custom
-  start/end positions).
+- RENDER_BOUNDSFLAG: 1 = entire project, 2 = time selection, 3 = all regions,
+  5 = selected regions (0 is custom start/end positions).
 
 Rendering never reaches a REAPER dialog: with nothing to render REAPER shows
 a modal "Nothing to render!", and with an existing target an overwrite
 prompt, and either blocks the call until someone clicks. So an empty source
-is refused before rendering and an existing target is removed first.
+is refused before rendering and an existing target is removed first, except
+by render_regions, which refuses existing targets rather than delete them.
 """
 
 import base64
+import os
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
+from reaper_mcp.project_tools import _markers_and_regions
 from reaper_mcp.reaper import RPR, get_project
 
 # "File: Render project, using the most recent render settings, auto-close
@@ -212,9 +216,214 @@ def _render_stem(tracks, index: int, target: Path, *, format: str,
     }
 
 
+# ---------------------------------------------------------------------------
+# Region rendering
+#
+# Encoding is left to the project's own render settings. Only the output
+# directory, the file name pattern and the bounds are changed, and all three
+# are restored on return.
+# ---------------------------------------------------------------------------
+
+ALL_REGIONS = 3
+SELECTED_REGIONS = 5
+
+
+def _get_str(key: str) -> str:
+    # reapy returns the out-parameters: (ok, project, key, value, is_set).
+    result = RPR.GetSetProjectInfo_String(0, key, "", False)
+    assert isinstance(result, (tuple, list)), result
+    return str(result[3])
+
+
+def _set_str(key: str, value: str) -> None:
+    RPR.GetSetProjectInfo_String(0, key, value, True)
+
+
+def _parse_render_targets(raw: str | None, directory: str | None = None) -> list[str]:
+    """Split REAPER's semicolon-separated RENDER_TARGETS into paths.
+
+    Region names may themselves contain ';', which would corrupt a naive split.
+    When the output directory is known, split on the ';' that immediately
+    precedes it instead, so only real separators are matched.
+    """
+    if not raw or not raw.strip():
+        return []
+    raw = raw.strip().rstrip(";")
+    if directory:
+        chunks = raw.split(";" + directory)
+        parts = [chunks[0]] + [directory + chunk for chunk in chunks[1:]]
+    else:
+        parts = raw.split(";")
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _conflicting_targets(targets: list[str]) -> list[str]:
+    """Targets that already exist on disk. Rendering over one opens REAPER's
+    overwrite prompt (see the module docstring), so they are refused first."""
+    return [t for t in targets if os.path.exists(t)]
+
+
+def _render_in_flight(directory: str) -> bool:
+    """True while the directory holds a `.sb-` file, which is treated as a
+    render still in progress (see _await_render)."""
+    if not directory or not os.path.isdir(directory):
+        return False
+    for entry in os.scandir(directory):
+        try:
+            if entry.is_file() and ".sb-" in entry.name:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _directory_activity(directory: str) -> tuple[int, int]:
+    """(file count, total bytes) for a directory, scratch files included."""
+    if not directory or not os.path.isdir(directory):
+        return (0, 0)
+    count = total = 0
+    for entry in os.scandir(directory):
+        try:
+            if entry.is_file():
+                count += 1
+                total += entry.stat().st_size
+        except OSError:
+            continue
+    return (count, total)
+
+
+def _await_render(targets: list[str], *, stall_timeout: float = 120.0,
+                  timeout: float = 3600.0, poll_interval: float = 1.0,
+                  scratch_grace: float | None = None) -> tuple[list[dict], str]:
+    """Wait for a render to finish. Returns (files, status), status being
+    "complete", "stalled" or "timeout"."""
+    # Completion is read from the filesystem, without calling REAPER: the
+    # render is complete once every expected target exists at a stable
+    # non-zero size, whether or not action 42230 returned first. Only the
+    # known targets count as output; progress (any change in the directory's
+    # file count or size) is measured across the whole directory, so a render
+    # that stops writing trips stall_timeout instead of running to timeout.
+    # While a `.sb-` file is present, quiet time is tolerated up to
+    # scratch_grace (3x stall_timeout), because giving up restores the render
+    # settings.
+    #
+    # Observed on REAPER 7.75 rendering two 60 s WAV regions: 42230 returned
+    # after both files were complete, and no `.sb-` file appeared.
+    def collect() -> list[dict]:
+        return [{"path": t, "size_bytes": os.path.getsize(t)}
+                for t in targets if os.path.exists(t)]
+
+    if not targets:
+        return [], "complete"
+
+    directory = os.path.dirname(targets[0])
+    if scratch_grace is None:
+        scratch_grace = stall_timeout * 3
+    deadline = time.time() + timeout
+    last_activity = time.time()
+    activity = _directory_activity(directory)
+    previous, stable = None, 0
+
+    while time.time() < deadline:
+        current = _directory_activity(directory)
+        if current != activity:
+            activity, last_activity = current, time.time()
+
+        sizes = {t: os.path.getsize(t) for t in targets if os.path.exists(t)}
+        finished = len(sizes) == len(targets) and all(size > 0 for size in sizes.values())
+        if finished and sizes == previous:
+            stable += 1
+            if stable >= 3:
+                return collect(), "complete"
+        else:
+            stable = 0
+        previous = sizes
+
+        quiet = time.time() - last_activity
+        limit = scratch_grace if _render_in_flight(directory) else stall_timeout
+        if quiet > limit:
+            return collect(), "stalled"
+        time.sleep(poll_interval)
+    return collect(), "timeout"
+
+
+def render_regions(
+    *,
+    output_directory: str,
+    pattern: str = "$region",
+    selected_only: bool = False,
+    dry_run: bool = False,
+    stall_timeout_seconds: float = 120.0,
+    timeout_seconds: float = 3600.0,
+) -> dict:
+    """
+    Render each region of the project to its own file, using the project's
+    render settings.
+    pattern: file name pattern; $region, $regionnumber, $project are available.
+    selected_only: render only the regions selected in REAPER; with none
+        selected, REAPER renders all of them.
+    dry_run: return the regions and the files REAPER would write, without rendering.
+    Fails without rendering if any output file already exists; never deletes files.
+    Blocks until the render finishes, gives up after stall_timeout_seconds with
+    nothing written, or timeout_seconds in total; status is "complete",
+    "stalled" or "timeout".
+    Region "index" is the position among regions, as in get_project_info.
+    """
+    # The render settings must stay in place until REAPER is done with them,
+    # which is why the call blocks: an async mode would need a job API.
+    directory = str(Path(output_directory).expanduser().resolve())
+    regions = _markers_and_regions()[1]
+    if not regions:
+        return {"success": False, "error": "no regions are defined in the current project"}
+
+    saved = {key: _get_str(key) for key in ("RENDER_FILE", "RENDER_PATTERN")}
+    saved_bounds = RPR.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", 0.0, False)
+    try:
+        _set_str("RENDER_FILE", directory)
+        _set_str("RENDER_PATTERN", pattern)
+        RPR.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG",
+                              float(SELECTED_REGIONS if selected_only else ALL_REGIONS), True)
+        # REAPER resolves the pattern per region itself, including names, so
+        # its own RENDER_TARGETS is the authority on what will be written.
+        targets = _parse_render_targets(_get_str("RENDER_TARGETS"), directory)
+        if not targets:
+            return {"success": False, "error": "REAPER reported no render targets"}
+        clashes = _conflicting_targets(targets)
+        if dry_run:
+            return {"success": True, "dry_run": True, "already_exist": clashes,
+                    "output_directory": directory, "region_count": len(regions),
+                    "regions": regions, "would_write": targets}
+        if clashes:
+            return {"success": False,
+                    "error": f"{len(clashes)} output file(s) already exist; render_regions "
+                             "does not render over existing files. Move or delete them, "
+                             "or render into an empty directory.",
+                    "already_exist": clashes}
+
+        os.makedirs(directory, exist_ok=True)
+        started = time.time()
+        RPR.Main_OnCommand(RENDER_PROJECT, 0)
+        written, status = _await_render(
+            targets, stall_timeout=stall_timeout_seconds, timeout=timeout_seconds)
+        complete = status == "complete"
+        result = {"success": complete, "output_directory": directory,
+                  "region_count": len(regions), "files_written": len(written),
+                  "files": written, "expected": targets, "status": status,
+                  "elapsed_seconds": round(time.time() - started, 1)}
+        if not complete:
+            result["error"] = (f"render did not finish ({status}): wrote {len(written)} of "
+                               f"{len(targets)} expected files")
+        return result
+    finally:
+        for key, value in saved.items():
+            _set_str(key, value)
+        RPR.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", saved_bounds, True)
+
+
 TOOLS = (
     render_project,
     render_time_selection,
     render_stems,
+    render_regions,
 )
 
