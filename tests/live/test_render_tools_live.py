@@ -149,3 +149,33 @@ def test_render_regions_selected_only_with_none_selected(add_tone, live_project,
     assert result["success"] is True, result
     # With no region selected, REAPER renders all of them.
     assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["intro.wav", "verse.wav"]
+
+
+def test_render_regions_numbers_clashing_names(add_tone, live_project, call, tmp_path):
+    # REAPER 7.82 numbers names that would clash, so every target is distinct.
+    add_tone("a", 440)
+    live_project.add_region(0.0, 0.5, name="take")
+    live_project.add_region(0.5, 1.5, name="take")
+    out = tmp_path / "out"
+    result = call("render_regions", output_directory=str(out), stall_timeout_seconds=30.0)
+    assert result["success"] is True, result
+    expected = [str(out / "take-001.wav"), str(out / "take-002.wav")]
+    assert [f["path"] for f in result["files"]] == expected
+    durations = [sf.info(path).duration for path in expected]
+    assert durations == [pytest.approx(d, abs=0.01) for d in (0.5, 1.0)]
+
+
+
+def test_render_regions_into_subdirectories(add_tone, live_project, call, tmp_path):
+    # A pattern can name a directory per region; every one is watched.
+    add_tone("a", 440)
+    live_project.add_region(0.0, 0.5, name="intro")
+    live_project.add_region(0.5, 1.5, name="outro")
+    out = tmp_path / "out"
+    result = call("render_regions", output_directory=str(out), pattern="$region/mix",
+                  stall_timeout_seconds=30.0)
+    assert result["success"] is True, result
+    expected = [str(out / "intro" / "mix.wav"), str(out / "outro" / "mix.wav")]
+    assert [f["path"] for f in result["files"]] == expected
+    durations = [sf.info(path).duration for path in expected]
+    assert durations == [pytest.approx(d, abs=0.01) for d in (0.5, 1.0)]

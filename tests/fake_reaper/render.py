@@ -72,14 +72,26 @@ def _paths(reaper: FakeReaper) -> list[Path]:
     pattern = str(reaper.project_info.get("RENDER_PATTERN", "")) or "untitled"
     flag = int(float(reaper.project_info.get("RENDER_BOUNDSFLAG", 1.0)))
     if flag in REGION_BOUNDS:
-        return [directory / f"{pattern.replace('$region', name)}.{extension}"
-                for _, _, name in _regions(reaper)]
+        stems = [pattern.replace("$region", name) for _, _, name in _regions(reaper)]
+        return [directory / f"{stem}.{extension}" for stem in _numbered(stems)]
     return [directory / f"{pattern}.{extension}"]
 
 
+def _numbered(stems: list[str]) -> list[str]:
+    """REAPER 7.82 numbers file names that would clash: two regions named
+    "take", or a pattern without $region, give "take-001" and "take-002"."""
+    totals = {stem: stems.count(stem) for stem in stems}
+    seen: dict[str, int] = {}
+    numbered = []
+    for stem in stems:
+        seen[stem] = seen.get(stem, 0) + 1
+        numbered.append(stem if totals[stem] == 1 else f"{stem}-{seen[stem]:03d}")
+    return numbered
+
+
 def render_targets(reaper: FakeReaper) -> str:
-    """RENDER_TARGETS as REAPER 7.75 reports it for region bounds: the paths,
-    each followed by ';'. Only region bounds are modelled; for any other bounds
+    """RENDER_TARGETS as REAPER 7.75 and 7.82 report it for region bounds: the
+    paths, each followed by ';'. Only region bounds are modelled; for any other bounds
     the fake reports no targets."""
     flag = int(float(reaper.project_info.get("RENDER_BOUNDSFLAG", 1.0)))
     if flag not in REGION_BOUNDS:
