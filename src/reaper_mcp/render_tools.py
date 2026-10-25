@@ -35,6 +35,17 @@ WAV_BIT_DEPTHS = (16, 24, 32)  # 32 renders as float
 SOLO_IN_PLACE = 2
 
 
+def get_project_string(key: str) -> str:
+    # reapy returns the out-parameters: (ok, project, key, value, is_set).
+    result = RPR.GetSetProjectInfo_String(0, key, "", False)
+    assert isinstance(result, (tuple, list)), result
+    return str(result[3])
+
+
+def set_project_string(key: str, value: str) -> None:
+    RPR.GetSetProjectInfo_String(0, key, value, True)
+
+
 def _format_config(format: str, bit_depth: int) -> str:
     fmt = format.lower()
     if fmt not in FORMAT_TYPES:
@@ -63,9 +74,9 @@ def _render(target: Path, *, format: str, sample_rate: int, bit_depth: int,
     config = _format_config(format, bit_depth)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.unlink(missing_ok=True)  # an existing file raises REAPER's overwrite prompt
-    RPR.GetSetProjectInfo_String(0, "RENDER_FILE", str(target.parent), True)
-    RPR.GetSetProjectInfo_String(0, "RENDER_PATTERN", target.stem, True)
-    RPR.GetSetProjectInfo_String(0, "RENDER_FORMAT", config, True)
+    set_project_string("RENDER_FILE", str(target.parent))
+    set_project_string("RENDER_PATTERN", target.stem)
+    set_project_string("RENDER_FORMAT", config)
     RPR.GetSetProjectInfo(0, "RENDER_SRATE", float(sample_rate), True)
     RPR.GetSetProjectInfo(0, "RENDER_CHANNELS", float(channels), True)
     RPR.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", float(bounds), True)
@@ -217,4 +228,3 @@ TOOLS = (
     render_time_selection,
     render_stems,
 )
-

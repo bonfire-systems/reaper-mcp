@@ -57,7 +57,7 @@ def load_project(*, project_path: str) -> dict:
     }
 
 
-def _markers_and_regions() -> tuple[list[dict], list[dict]]:
+def markers_and_regions() -> tuple[list[dict], list[dict]]:
     """Project markers and regions, each indexed in their own sequence."""
     markers: list[dict] = []
     regions: list[dict] = []
@@ -135,7 +135,7 @@ def _set_tempo(project, bpm: float) -> None:
 def get_project_info() -> dict:
     """Get information about the current project: name, path, tempo, tracks, length."""
     project = get_project()
-    markers, regions = _markers_and_regions()
+    markers, regions = markers_and_regions()
     return {
         "success": True,
         "name": project.name,

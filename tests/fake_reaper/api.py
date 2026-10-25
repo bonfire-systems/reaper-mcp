@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.fake_reaper.objects import PRESETS, ItemState, Send, TrackState
 from tests.fake_reaper.project import FakeProject
-from tests.fake_reaper.render import render
+from tests.fake_reaper.render import render, render_targets
 
 RENDER_PROJECT = 42230
 STRING_PROJECT_INFO = {"RENDER_FILE", "RENDER_PATTERN", "RENDER_FORMAT"}
@@ -88,7 +88,7 @@ class FakeReaper:
     def Main_OnCommand(self, command: int, flag: int) -> None:
         self.commands.append(command)
         if command == RENDER_PROJECT:
-            self.renders.append(render(self))
+            self.renders.extend(render(self))
             self.render_solos.append([t.name for t in self.tracks if t.info["I_SOLO"]])
         elif command == NEW_PROJECT_TAB:
             # The current project moves to a background tab, untouched.
@@ -142,6 +142,8 @@ class FakeReaper:
         return float(self.project_info.get(desc, 0.0))
 
     def GetSetProjectInfo_String(self, project: int, desc: str, value: str, is_set: bool):
+        if desc == "RENDER_TARGETS":  # read-only, derived from the other settings
+            return (True, project, desc, render_targets(self), is_set)
         if desc not in STRING_PROJECT_INFO:
             return (False, project, desc, "", is_set)  # REAPER: unknown key, nothing set
         if is_set:

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 EXTENSIONS = {b"evaw": "wav", b"calf": "flac", b"l3pm": "mp3", b"vggo": "ogg"}
 WAV_SUBTYPES = {16: "PCM_16", 24: "PCM_24", 32: "FLOAT"}
+REGION_BOUNDS = (3, 5)  # all regions, selected regions
 SOUNDFILE_FORMATS = {"wav": ("WAV", None), "flac": ("FLAC", "PCM_16"),
                      "ogg": ("OGG", "VORBIS"), "mp3": ("MP3", "MPEG_LAYER_III")}
 
@@ -58,16 +59,65 @@ def _signal(reaper: FakeReaper, seconds: float, rate: int) -> np.ndarray:
     return np.clip(np.stack(channels, axis=1), -1.0, 1.0)
 
 
-def render(reaper: FakeReaper) -> Path:
-    extension, subtype = _format(str(reaper.project_info.get("RENDER_FORMAT", "")))
-    directory = Path(str(reaper.project_info["RENDER_FILE"]))
+def _regions(reaper: FakeReaper) -> list[tuple[float, float, str]]:
+    """The regions a region render covers. The fake has no region selection;
+    REAPER 7.75 renders every region for "selected regions" (5) when none is
+    selected, so both region flags cover all of them here."""
+    return sorted(reaper.regions)
+
+
+def _paths(reaper: FakeReaper) -> list[Path]:
+    extension, _ = _format(str(reaper.project_info.get("RENDER_FORMAT", "")))
+    directory = Path(str(reaper.project_info.get("RENDER_FILE", "")))
     pattern = str(reaper.project_info.get("RENDER_PATTERN", "")) or "untitled"
-    path = directory / f"{pattern}.{extension}"
-    start, end = _bounds(reaper)
-    if end <= start:
+    flag = int(float(reaper.project_info.get("RENDER_BOUNDSFLAG", 1.0)))
+    if flag in REGION_BOUNDS:
+        stems = [pattern.replace("$region", name) for _, _, name in _regions(reaper)]
+        return [directory / f"{stem}.{extension}" for stem in _numbered(stems)]
+    return [directory / f"{pattern}.{extension}"]
+
+
+def _numbered(stems: list[str]) -> list[str]:
+    """REAPER 7.82 numbers file names that would clash: two regions named
+    "take", or a pattern without $region, give "take-001" and "take-002"."""
+    totals = {stem: stems.count(stem) for stem in stems}
+    seen: dict[str, int] = {}
+    numbered = []
+    for stem in stems:
+        seen[stem] = seen.get(stem, 0) + 1
+        numbered.append(stem if totals[stem] == 1 else f"{stem}-{seen[stem]:03d}")
+    return numbered
+
+
+def render_targets(reaper: FakeReaper) -> str:
+    """RENDER_TARGETS as REAPER 7.75 and 7.82 report it for region bounds: the
+    paths, each followed by ';'. Only region bounds are modelled; for any other bounds
+    the fake reports no targets."""
+    flag = int(float(reaper.project_info.get("RENDER_BOUNDSFLAG", 1.0)))
+    if flag not in REGION_BOUNDS:
+        return ""
+    return "".join(f"{path};" for path in _paths(reaper))
+
+
+def render(reaper: FakeReaper) -> list[Path]:
+    flag = int(float(reaper.project_info.get("RENDER_BOUNDSFLAG", 1.0)))
+    if flag in REGION_BOUNDS:
+        spans = [(start, end) for start, end, _ in _regions(reaper)]
+    else:
+        spans = [_bounds(reaper)]
+    paths = _paths(reaper)
+    if not paths or any(end <= start for start, end in spans):
         raise ModalDialog("Render Error: Nothing to render!")
-    if path.exists():
-        raise ModalDialog(f"Render Warning: {path.name} exists (overwrite / increment / cancel)")
+    for path in paths:
+        if path.exists():
+            raise ModalDialog(f"Render Warning: {path.name} exists (overwrite / increment / cancel)")
+    return [_write(reaper, path, start, end)
+            for path, (start, end) in zip(paths, spans, strict=True)]
+
+
+def _write(reaper: FakeReaper, path: Path, start: float, end: float) -> Path:
+    extension, subtype = _format(str(reaper.project_info.get("RENDER_FORMAT", "")))
+    directory = path.parent
     rate = int(float(reaper.project_info.get("RENDER_SRATE", 48000)))
     data = _signal(reaper, end - start, rate)
     if int(float(reaper.project_info.get("RENDER_CHANNELS", 2))) == 1:

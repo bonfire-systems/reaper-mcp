@@ -856,6 +856,47 @@
       "type": "object"
     }
   },
+  "render_regions": {
+    "description": "Render each region of the project to its own file, using the project's\nrender settings.\npattern: file name pattern; $region, $regionnumber, $project are available,\n    and it may name subdirectories. REAPER numbers names that would clash\n    (\"take-001\", \"take-002\").\nselected_only: render only the regions selected in REAPER; with none\n    selected, REAPER renders all of them.\ndry_run: return the project's regions and the files REAPER would write,\n    without rendering. It sets the render settings and restores them.\nFails without rendering if any output file already exists; never deletes files.\nBlocks until every file is written; status is then \"complete\". Gives up\nwith \"stalled\" once the files stop growing for stall_timeout_seconds\n(longer while REAPER holds a scratch file), or \"timeout\" after\ntimeout_seconds in total.\nRegion \"index\" is the position among regions, as in get_project_info.",
+    "input_schema": {
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "output_directory": {
+          "title": "Output Directory",
+          "type": "string"
+        },
+        "pattern": {
+          "default": "$region",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "selected_only": {
+          "default": false,
+          "title": "Selected Only",
+          "type": "boolean"
+        },
+        "stall_timeout_seconds": {
+          "default": 120.0,
+          "title": "Stall Timeout Seconds",
+          "type": "number"
+        },
+        "timeout_seconds": {
+          "default": 3600.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "output_directory"
+      ],
+      "title": "render_regionsArguments",
+      "type": "object"
+    }
+  },
   "render_stems": {
     "description": "Render each track as a separate stem file by soloing each track individually.\ntrack_indices: list of track indices, or null to render all tracks.\nFiles are named after the track names in the output directory.",
     "input_schema": {
