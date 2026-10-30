@@ -186,6 +186,15 @@ def test_create_chord_progression_follows_tempo_and_beats(reaper, call):
     assert [n.end for n in track.items[0].notes] == pytest.approx([1.9] * 4)
 
 
+def test_create_chord_progression_uses_the_tempo_of_the_marker_at_the_start(reaper, call):
+    """set_tempo edits this marker and leaves reapy's Project.bpm where it was."""
+    reaper.bpm = 120.0
+    reaper.tempo_markers = [[0.0, 100.0, 4, 4]]
+    reaper.add_track("Keys")
+    result = call("create_chord_progression", track_index=0, chords="C,G", start_position=0.0)
+    assert result["total_length"] == pytest.approx(4.8)
+
+
 def test_create_chord_progression_python_default_is_four_beats(reaper):
     track = reaper.add_track("Keys")
     result = midi_tools.create_chord_progression(track_index=0, chords="C", start_position=0.0)
@@ -269,3 +278,11 @@ def test_create_drum_pattern_empty_pattern_creates_nothing(reaper, call):
 def test_create_drum_pattern_bad_track(reaper, call):
     result = call("create_drum_pattern", track_index=0, pattern="k", start_position=0.0)
     assert result == {"success": False, "error": "list index out of range"}
+
+
+def test_create_drum_pattern_uses_the_tempo_of_the_marker_at_the_start(reaper, call):
+    reaper.bpm = 120.0
+    reaper.tempo_markers = [[0.0, 100.0, 4, 4]]
+    reaper.add_track("Drums")
+    result = call("create_drum_pattern", track_index=0, pattern="k...", start_position=0.0)
+    assert result["total_length"] == pytest.approx(2.4)
