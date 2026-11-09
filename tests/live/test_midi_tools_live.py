@@ -43,3 +43,23 @@ def test_drum_pattern_lands_inside_its_item(live_project, call):
     result = call("create_drum_pattern", track_index=0, pattern="k...s...", start_position=2.0, beats=2)
     assert result["success"] is True, result
     assert notes_in_project_time(live_project) == [(2.0, 2.0625, 36, 100, 9), (2.5, 2.5625, 38, 100, 9)]
+
+
+def test_chord_progression_follows_set_tempo(live_project, call):
+    """set_tempo edits the marker at the start, which reapy's Project.bpm does not follow."""
+    call("set_time_signature", numerator=4, denominator=4)
+    call("set_tempo", bpm=100.0)
+    live_project.add_track(0, "keys")
+    result = call("create_chord_progression", track_index=0, chords="C,Am", start_position=0.0,
+                  beats_per_chord=4)
+    assert result["success"] is True, result
+    assert {n[0] for n in notes_in_project_time(live_project)} == {0.0, 2.4}  # 100 BPM: 2.4 s per chord
+
+
+def test_drum_pattern_follows_set_tempo(live_project, call):
+    call("set_time_signature", numerator=4, denominator=4)
+    call("set_tempo", bpm=100.0)
+    live_project.add_track(0, "drums")
+    result = call("create_drum_pattern", track_index=0, pattern="k...s...", start_position=0.0, beats=2)
+    assert result["success"] is True, result
+    assert [n[0] for n in notes_in_project_time(live_project)] == [0.0, 0.6]

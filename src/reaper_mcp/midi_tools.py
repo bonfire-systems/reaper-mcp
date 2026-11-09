@@ -1,5 +1,5 @@
 
-from reaper_mcp.reaper import get_project
+from reaper_mcp.reaper import RPR, get_project
 
 # GM standard drum MIDI notes
 DRUM_MAPPINGS = {
@@ -134,7 +134,7 @@ def create_chord_progression(
     project = get_project()
     track = project.tracks[track_index]
     chord_list = [c.strip() for c in chords.split(",")]
-    seconds_per_beat = 60.0 / project.bpm
+    seconds_per_beat = 60.0 / RPR.Master_GetTempo()
     chord_length = seconds_per_beat * beats_per_chord
     total_length = chord_length * len(chord_list)
 
@@ -172,7 +172,7 @@ def create_drum_pattern(
         return {"success": False, "error": "pattern is empty; give one character per step"}
     project = get_project()
     track = project.tracks[track_index]
-    seconds_per_beat = 60.0 / project.bpm
+    seconds_per_beat = 60.0 / RPR.Master_GetTempo()
     pattern_length = seconds_per_beat * beats
     total_length = pattern_length * repeats
 
